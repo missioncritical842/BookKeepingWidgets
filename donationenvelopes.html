@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Donation Envelopes (v1.0)</title>
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+  <style>
+    body {
+      font-family: "Georgia", serif;
+      color: #333;
+      margin: 0;
+      padding: 20px;
+      background-color: #f0f0f0;
+    }
+    
+    /* Screen Styles */
+    #status-message {
+      text-align: center;
+      margin-top: 20px;
+      color: #666;
+    }
+    
+    .envelope {
+      width: 9.5in;
+      height: 4.125in;
+      position: relative;
+      background: white;
+      margin: 20px auto;
+      border: 1px solid #ccc;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      box-sizing: border-box;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .return-address {
+      position: absolute;
+      top: 0.5in;
+      left: 0.5in;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .org-name {
+      font-weight: bold;
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+    }
+
+    .recipient-address {
+      position: absolute;
+      top: 2in;
+      left: 4in;
+      width: 5in;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .recipient-name {
+      font-weight: bold;
+      margin-bottom: 2px;
+    }
+
+    /* Print Styles */
+    @media print {
+      @page {
+        size: 9.5in 4.125in; /* Standard #10 Envelope Size */
+        margin: 0;
+      }
+      
+      body {
+        margin: 0;
+        padding: 0;
+        background: none;
+      }
+
+      #status-message, #error-message {
+        display: none;
+      }
+
+      .envelope {
+        margin: 0;
+        border: none;
+        box-shadow: none;
+        page-break-after: always;
+        /* Ensure precise positioning for print */
+        width: 9.5in;
+        height: 4.125in;
+      }
+      
+      .envelope:last-child {
+        page-break-after: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="status-message">Loading envelope data...</div>
+  <div id="error-message" style="color: red; text-align: center; font-weight: bold; display: none;"></div>
+  <div id="envelope-container"></div>
+
+  <script>
+    grist.ready({
+      columns: [],
+      requiredAccess: 'read table'
+    });
+
+    // --- Configuration ---
+    const TABLE_TRANSACTIONS = "Transaction_Categorization";
+    const TABLE_ACCOUNTS = "Accounts";
+    const TABLE_PEOPLE = "People_Companies";
+
+    // Column Constants
+    // Transactions
+    const COL_TRANS_DATE_CLEARED = "Date_Cleared";
+    const COL_TRANS_DATE_POSTED = "Change_Date_Posted";
+    const COL_TRANS_ACCOUNT_REF = "Account_Long_Name"; // Ref to Accounts
+    const COL_TRANS_FROM_TO = "From_To"; // Ref to People_Companies
+
+    // Accounts
+    const COL_ACC_NAME = "ACCOUNT_NAME";
+    
+    // People
+    const COL_PEOPLE_NAME = "Display_Name";
+    const COL_PEOPLE_STREET1 = "Street1";
+    const COL_PEOPLE_STREET2 = "Street2";
+    const COL_PEOPLE_CITY = "City";
+    const COL_PEOPLE_STATE = "State";
+    const COL_PEOPLE_ZIP = "Zip";
+
+    const TARGET_ACCOUNT_NAME = "Individ, Business Contributions";
+
+    // --- Data Loading Logic ---
+    async function loadData() {
+      const statusEl = document.getElementById('status-message');
+      const errorEl = document.getElementById('error-message');
+      
+      try {
+        console.log("Fetching data...");
+        const [transData, accData, peopleData] = await Promise.all([
+          grist.docApi.fetchTable(TABLE_TRANSACTIONS),
+          grist.docApi.fetchTable(TABLE_ACCOUNTS),
+          grist.docApi.fetchTable(TABLE_PEOPLE)
+        ]);
+
+        const accRecords = convertToRecords(accData);
+        const peopleRecords = convertToRecords(peopleData);
+        const transRecords = convertToRecords(transData);
+
+        // 1. Find the Account ID
+        const donationAccount = accRecords.find(a => 
+            a[COL_ACC_NAME] && a[COL_ACC_NAME].trim() === TARGET_ACCOUNT_NAME
+        );
+
+        if (!donationAccount) {
+            throw new Error(`Account "${TARGET_ACCOUNT_NAME}" not found.`);
+        }
+        const donationAccountId = donationAccount.id;
+
+        // 2. Index People by ID
+        const peopleMap = {};
+        peopleRecords.forEach(p => {
+            peopleMap[p.id] = p;
+        });
+
+        // 3. Determine Previous Year
+        const today = new Date();
+        const previousYear = today.getFullYear() - 1;
+        
+        // UTC boundaries
+        const startYearVal = new Date(Date.UTC(previousYear, 0, 1)).getTime() / 1000;
+        const endYearVal = new Date(Date.UTC(previousYear, 11, 31, 23, 59, 59)).getTime() / 1000;
+
+        // 4. Identify Donors from Previous Year
+        const donorIds = new Set();
+
+        transRecords.forEach(t => {
+            // Check Account
+            if (t[COL_TRANS_ACCOUNT_REF] !== donationAccountId) return;
+
+            // Check Date
+            let dateVal = t[COL_TRANS_DATE_POSTED];
+            if (!dateVal && dateVal !== 0) dateVal = t[COL_TRANS_DATE_CLEARED];
+            if (Array.isArray(dateVal)) dateVal = dateVal[1];
+            if (!dateVal) return;
+
+            if (dateVal < startYearVal || dateVal > endYearVal) return;
+
+            // Check Donor
+            const donorId = t[COL_TRANS_FROM_TO];
+            if (donorId) {
+                donorIds.add(donorId);
+            }
+        });
+
+        if (donorIds.size === 0) {
+            statusEl.innerText = `No donors found for ${previousYear} in account "${TARGET_ACCOUNT_NAME}".`;
+            return;
+        }
+
+        // 5. Get Unique Donor Records
+        const donors = Array.from(donorIds).map(id => peopleMap[id]).filter(d => d);
+
+        // Sort donors alphabetically
+        donors.sort((a, b) => {
+            const nameA = a[COL_PEOPLE_NAME] || '';
+            const nameB = b[COL_PEOPLE_NAME] || '';
+            return nameA.localeCompare(nameB);
+        });
+
+        statusEl.innerText = `Generating envelopes for ${donors.length} donors...`;
+        
+        // 6. Render Envelopes
+        renderEnvelopes(donors);
+        statusEl.style.display = 'none'; // Hide status when done
+
+      } catch (err) {
+        console.error("Error:", err);
+        statusEl.style.display = 'none';
+        errorEl.style.display = 'block';
+        errorEl.innerText = "Error: " + err.message;
+      }
+    }
+
+    function renderEnvelopes(donors) {
+        const container = document.getElementById('envelope-container');
+        container.innerHTML = '';
+
+        donors.forEach(donor => {
+            // Validate address exists (skip if no street address?)
+            // Usually you want to print it even if incomplete so you see it's missing
+            
+            const envDiv = document.createElement('div');
+            envDiv.className = 'envelope';
+
+            const street2 = donor[COL_PEOPLE_STREET2] ? `<br>${donor[COL_PEOPLE_STREET2]}` : '';
+            const cityStateZip = `${donor[COL_PEOPLE_CITY] || ''}, ${donor[COL_PEOPLE_STATE] || ''} ${donor[COL_PEOPLE_ZIP] || ''}`;
+
+            envDiv.innerHTML = `
+                <div class="return-address">
+                    <div class="org-name">Headwaters Christian Resources</div>
+                    PO Box 175<br>
+                    Englewood, CO 80151
+                </div>
+                <div class="recipient-address">
+                    <div class="recipient-name">${donor[COL_PEOPLE_NAME] || 'Unknown Name'}</div>
+                    ${donor[COL_PEOPLE_STREET1] || ''}
+                    ${street2}
+                    <br>${cityStateZip}
+                </div>
+            `;
+
+            container.appendChild(envDiv);
+        });
+    }
+
+    // Helper to convert Grist column-oriented data
+    function convertToRecords(data) {
+      const columns = Object.keys(data);
+      if (columns.length === 0) return [];
+      if (Array.isArray(data)) return data;
+
+      const numRows = data.id ? data.id.length : 0;
+      const records = [];
+      for (let i = 0; i < numRows; i++) {
+        const record = { id: data.id[i] };
+        columns.forEach(col => {
+          if (col !== 'id') {
+             record[col] = data[col][i];
+          }
+        });
+        records.push(record);
+      }
+      return records;
+    }
+
+    loadData();
+  </script>
+</body>
+</html>
