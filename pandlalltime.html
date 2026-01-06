@@ -1,0 +1,471 @@
+<!-- Profit and Loss Statement Widget with Detailed Account Breakdown and Totals -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Profit and Loss Statement Widget</title>
+  
+  <!-- External Script -->
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+  
+  <!-- Styling for better appearance -->
+  <style>
+    /* Container Styling */
+    #pl-statement {
+      font-family: Georgia, serif; /* Changed to a serif font */
+      margin: 20px;
+      font-size: 14px; /* Base font size reduced */
+      color: #333; /* Dark grey text for better readability */
+    }
+
+    /* Main Heading Styling */
+    #pl-statement h2 {
+      text-align: center; /* Center the heading */
+      margin-bottom: 20px;
+      line-height: 1.2; /* Adjust line height for better spacing between lines */
+      font-size: 20px; /* Reduced font size */
+    }
+
+    /* Span Styling for Heading Lines */
+    #pl-statement h2 .line1 {
+      display: block; /* Ensure each span starts on a new line */
+      font-size: 20px; /* Reduced font size */
+      font-weight: bold;
+    }
+
+    #pl-statement h2 .line2 {
+      display: block; /* Ensure each span starts on a new line */
+      font-size: 16px; /* Reduced font size */
+      font-weight: normal;
+      color: #555; /* Different color for the second line */
+    }
+
+    /* Detailed sections styling */
+    .details-section {
+      margin-bottom: 40px;
+    }
+
+    .details-section h3 {
+      margin-bottom: 10px;
+      font-size: 16px; /* Reduced font size */
+      font-weight: bold;
+      color: #444; /* Slightly lighter grey for subheadings */
+    }
+
+    .details-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 10px;
+      font-size: 14px; /* Consistent with base font size */
+    }
+
+    .details-table th, .details-table td {
+      border: 1px solid #ccc;
+      padding: 6px; /* Reduced padding for compactness */
+      vertical-align: middle; /* Align text vertically center */
+    }
+
+    .details-table th {
+      background-color: #e6e6e6;
+      text-align: left;
+      font-size: 14px; /* Consistent font size */
+    }
+
+    .details-table td {
+      text-align: right;
+      font-size: 14px; /* Consistent font size */
+    }
+
+    .details-table td:first-child {
+      text-align: left;
+    }
+
+    /* Totals row styling */
+    .details-table .total-row {
+      font-weight: bold;
+      background-color: #f9f9f9;
+      font-size: 14px; /* Consistent font size */
+    }
+
+    /* Negative amount styling */
+    .negative-amount {
+      color: red;
+    }
+
+    /* Net Profit styling */
+    #net-profit-section {
+      font-size: 16px; /* Reduced font size */
+      font-weight: bold;
+      text-align: center; /* Center the Net Profit display */
+      margin-top: 20px;
+      color: #333; /* Ensure visibility */
+    }
+
+    /* Error message styling */
+    #error-message {
+      color: red;
+      font-weight: bold;
+      margin-top: 10px;
+      text-align: center; /* Center the error message */
+      font-size: 14px; /* Consistent font size */
+    }
+
+    /* Styles for additional text input */
+    #additional-text-container {
+      margin-top: 10px;
+      margin-bottom: 20px;
+      text-align: center; /* Center the input container */
+    }
+
+    #additionalTextInput {
+      width: 80%;
+      max-width: 400px; /* Optional: Maximum width for larger screens */
+      padding: 6px; /* Reduced padding */
+      font-size: 14px; /* Consistent font size */
+      border: none; /* Removed the border */
+      border-radius: 4px;
+      background-color: #f0f0f0; /* Light background for visibility */
+      outline: none; /* Remove default outline */
+      text-align: center; /* Center the input text */
+      transition: box-shadow 0.3s ease, background-color 0.3s ease; /* Smooth transitions for focus effect */
+      font-family: inherit; /* Inherit the serif font */
+    }
+
+    #additionalTextInput:focus {
+      box-shadow: 0 0 5px rgba(81, 203, 238, 1); /* Adds a subtle blue glow on focus */
+      background-color: #fff; /* Change background on focus */
+    }
+
+    /* Indentation Classes */
+    .indent-1 {
+      padding-left: 20px; /* First level of indentation */
+    }
+
+    .indent-2 {
+      padding-left: 40px; /* Second level of indentation */
+    }
+
+    .indent-3 {
+      padding-left: 60px; /* Third level of indentation */
+    }
+
+    .indent-4 {
+      padding-left: 80px; /* Fourth level of indentation */
+    }
+
+    /* Responsive Design */
+    @media (max-width: 600px) {
+      .details-table {
+        width: 100%;
+      }
+      #additionalTextInput {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="pl-statement">
+    <!-- Main Heading Split into Two Lines -->
+    <h2>
+      <span class="line1">Headwaters Christian Resources</span>
+      <span class="line2">Profit and Loss Statement</span>
+    </h2>
+    
+    <!-- Additional Text Input Container -->
+    <div id="additional-text-container">
+      <input type="text" id="additionalTextInput" placeholder="Enter additional text here" />
+      <!-- Removed the display paragraph below to prevent duplicate text display -->
+    </div>
+    
+    <!-- Detailed Income Accounts -->
+    <div class="details-section">
+      <h3>Income</h3>
+      <table class="details-table" id="income-details">
+        <tr>
+          <th>Account</th>
+          <th>Amount</th>
+        </tr>
+        <!-- Income accounts will be listed here -->
+        <!-- Total Income row will be appended here -->
+      </table>
+    </div>
+    
+    <!-- Detailed Expense Accounts -->
+    <div class="details-section">
+      <h3>Expense</h3>
+      <table class="details-table" id="expense-details">
+        <tr>
+          <th>Account</th>
+          <th>Amount</th>
+        </tr>
+        <!-- Expense accounts will be listed here -->
+        <!-- Total Expenses row will be appended here -->
+      </table>
+    </div>
+    
+    <!-- Net Profit Display -->
+    <div id="net-profit-section">
+      Net Profit: <span id="net-profit">$0.00</span>
+    </div>
+    
+    <!-- Error Message -->
+    <div id="error-message"></div>
+  </div>
+  
+  <!-- JavaScript Section -->
+  <script>
+    // Function to handle additional text input
+    function handleAdditionalText() {
+      const input = document.getElementById('additionalTextInput').value.trim();
+      // Optional: Use the input as needed within the widget
+      // Example: Dynamically update the main heading
+      // document.querySelector('#pl-statement h2 .line1').textContent = input || 'Headwaters Christian Resources';
+    }
+
+    // Add event listener for input field when DOM is fully loaded
+    document.addEventListener('DOMContentLoaded', function() {
+      const additionalTextInput = document.getElementById('additionalTextInput');
+      if (additionalTextInput) {
+        additionalTextInput.addEventListener('input', handleAdditionalText);
+      }
+    });
+
+    // Initialize the widget with required column mappings
+    grist.ready({
+      columns: [
+        {
+          name: "Amount",                // The transaction amount
+          title: "Transaction Amount",   // Friendly name for mapping
+          type: "Numeric",               // Ensure it's a numeric column
+          optional: false,
+          description: "The amount of the transaction."
+        },
+        {
+          name: "Account_Type_Name",      // The account type name (Income/Expense)
+          title: "Account Type",          // Friendly name for mapping
+          type: "Text",                   // Text type
+          optional: false,
+          description: "Type of the account: Income or Expense."
+        },
+        {
+          name: "Account",                // The account name
+          title: "Account",               // Friendly name for mapping
+          type: "Ref",                    // Reference type
+          optional: false,
+          description: "The account associated with the transaction."
+        },
+        {
+          name: "Accounts_1",             // Hierarchical account level 1
+          title: "Accounts 1",
+          type: "Text",                   // Assuming it's a text field; adjust if different
+          optional: true,
+          description: "Top-level account in the hierarchy."
+        },
+        {
+          name: "Accounts_2",             // Hierarchical account level 2
+          title: "Accounts 2",
+          type: "Text",
+          optional: true,
+          description: "Second-level account in the hierarchy."
+        },
+        {
+          name: "Accounts_3",             // Hierarchical account level 3
+          title: "Accounts 3",
+          type: "Text",
+          optional: true,
+          description: "Third-level account in the hierarchy."
+        },
+        {
+          name: "Accounts_4",             // Hierarchical account level 4
+          title: "Accounts 4",
+          type: "Text",
+          optional: true,
+          description: "Fourth-level account in the hierarchy."
+        }
+      ],
+      requiredAccess: 'read table'
+    });
+
+    // Function to build hierarchical account structure
+    function buildHierarchy(records, accountType) {
+      const hierarchy = {};
+
+      records.forEach(record => {
+        // Ensure the record matches the desired account type (Income or Expense)
+        if (record['Account_Type_Name'] && record['Account_Type_Name'].trim().toLowerCase() === accountType.toLowerCase()) {
+          const amount = parseFloat(record.Amount) || 0;
+          const accounts1 = record.Accounts_1 || 'Uncategorized';
+          const accounts2 = record.Accounts_2 || '';
+          const accounts3 = record.Accounts_3 || '';
+          const accounts4 = record.Accounts_4 || '';
+
+          // Initialize hierarchy levels
+          if (!hierarchy[accounts1]) {
+            hierarchy[accounts1] = {
+              amount: 0,
+              children: {}
+            };
+          }
+          hierarchy[accounts1].amount += amount;
+
+          if (accounts2) {
+            if (!hierarchy[accounts1].children[accounts2]) {
+              hierarchy[accounts1].children[accounts2] = {
+                amount: 0,
+                children: {}
+              };
+            }
+            hierarchy[accounts1].children[accounts2].amount += amount;
+
+            if (accounts3) {
+              if (!hierarchy[accounts1].children[accounts2].children[accounts3]) {
+                hierarchy[accounts1].children[accounts2].children[accounts3] = {
+                  amount: 0,
+                  children: {}
+                };
+              }
+              hierarchy[accounts1].children[accounts2].children[accounts3].amount += amount;
+
+              if (accounts4) {
+                if (!hierarchy[accounts1].children[accounts2].children[accounts3].children[accounts4]) {
+                  hierarchy[accounts1].children[accounts2].children[accounts3].children[accounts4] = {
+                    amount: 0
+                  };
+                }
+                hierarchy[accounts1].children[accounts2].children[accounts3].children[accounts4].amount += amount;
+              }
+            }
+          }
+        }
+      });
+
+      return hierarchy;
+    }
+
+    // Function to sort a hierarchy alphabetically
+    function sortHierarchy(hierarchy) {
+      const sorted = {};
+
+      // Get sorted keys
+      const keys = Object.keys(hierarchy).sort((a, b) => a.localeCompare(b));
+
+      keys.forEach(key => {
+        sorted[key] = { ...hierarchy[key] };
+        if (sorted[key].children && Object.keys(sorted[key].children).length > 0) {
+          sorted[key].children = sortHierarchy(sorted[key].children);
+        }
+      });
+
+      return sorted;
+    }
+
+    // Function to insert hierarchy into table
+    function insertHierarchyIntoTable(hierarchy, tableBody, level = 0) {
+      const indentClass = `indent-${level}`;
+
+      Object.keys(hierarchy).forEach(account => {
+        const row = tableBody.insertRow();
+        const accountCell = row.insertCell(0);
+        const amountCell = row.insertCell(1);
+
+        accountCell.innerHTML = `<span class="${indentClass}">${account}</span>`;
+        amountCell.innerText = `$${hierarchy[account].amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+
+        // If there are child accounts, recurse
+        if (hierarchy[account].children && Object.keys(hierarchy[account].children).length > 0) {
+          insertHierarchyIntoTable(hierarchy[account].children, tableBody, Math.min(level + 1, 4)); // Limit indentation to level 4
+        }
+      });
+    }
+
+    // Handle data updates
+    grist.onRecords(function(records, mappings) {
+      const plWidget = document.getElementById('pl-statement');
+      const errorMessage = document.getElementById('error-message');
+      const incomeDetails = document.getElementById('income-details');
+      const expenseDetails = document.getElementById('expense-details');
+      const netProfitDisplay = document.getElementById('net-profit');
+      
+      errorMessage.innerText = ''; // Clear any previous error messages
+      incomeDetails.innerHTML = `
+        <tr>
+          <th>Account</th>
+          <th>Amount</th>
+        </tr>
+      `; // Reset Income Details Table
+      expenseDetails.innerHTML = `
+        <tr>
+          <th>Account</th>
+          <th>Amount</th>
+        </tr>
+      `; // Reset Expense Details Table
+      netProfitDisplay.innerText = '$0.00'; // Reset Net Profit Display
+
+      const mapped = grist.mapColumnNames(records, mappings);
+      if (!mapped) {
+        errorMessage.innerText = "Error: Please map all required columns: Transaction Amount, Account Type, and Account.";
+        return;
+      }
+
+      // Separate records into Income and Expense
+      const incomeRecords = [];
+      const expenseRecords = [];
+
+      const recordsArray = Array.isArray(mapped) ? mapped : [mapped];
+      recordsArray.forEach(record => {
+        if (record['Account_Type_Name'] && record['Account_Type_Name'].trim().toLowerCase() === 'income') {
+          incomeRecords.push(record);
+        } else if (record['Account_Type_Name'] && record['Account_Type_Name'].trim().toLowerCase() === 'expense') {
+          expenseRecords.push(record);
+        }
+      });
+
+      // Build and sort hierarchies
+      const hierarchyIncome = sortHierarchy(buildHierarchy(incomeRecords, 'Income'));
+      const hierarchyExpense = sortHierarchy(buildHierarchy(expenseRecords, 'Expense'));
+
+      // Insert Income hierarchy into table
+      insertHierarchyIntoTable(hierarchyIncome, incomeDetails);
+
+      // Calculate total income
+      let totalIncome = 0;
+      Object.values(hierarchyIncome).forEach(account => {
+        totalIncome += account.amount;
+      });
+
+      // Insert Expense hierarchy into table
+      insertHierarchyIntoTable(hierarchyExpense, expenseDetails);
+
+      // Calculate total expenses
+      let totalExpenses = 0;
+      Object.values(hierarchyExpense).forEach(account => {
+        totalExpenses += account.amount;
+      });
+
+      const netProfit = totalIncome + totalExpenses; // Assuming Expenses are negative
+
+      // Update Net Profit Display
+      netProfitDisplay.innerText = `$${netProfit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+
+      // Add Total Income row
+      const incomeTotalRow = incomeDetails.insertRow();
+      incomeTotalRow.classList.add('total-row');
+      const incomeTotalLabel = incomeTotalRow.insertCell(0);
+      const incomeTotalAmount = incomeTotalRow.insertCell(1);
+      incomeTotalLabel.innerText = 'Total Income';
+      incomeTotalAmount.innerText = `$${totalIncome.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+
+      // Add Total Expenses row
+      const expenseTotalRow = expenseDetails.insertRow();
+      expenseTotalRow.classList.add('total-row');
+      const expenseTotalLabel = expenseTotalRow.insertCell(0);
+      const expenseTotalAmount = expenseTotalRow.insertCell(1);
+      expenseTotalLabel.innerText = 'Total Expenses';
+      expenseTotalAmount.innerText = `$${Math.abs(totalExpenses).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`; // Display as positive
+    });
+  </script>
+</body>
+</html>
+
