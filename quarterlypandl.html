@@ -396,29 +396,52 @@
       let quarterName;
 
       if (currentMonth >= 0 && currentMonth <= 2) { 
-        previousQuarterStartMonth = 9; 
-        previousQuarterEndMonth = 11; 
+        // Current: Jan-Mar (Q1) -> Prev: Q4 of Prev Year
+        previousQuarterStartMonth = 9; // Oct (0-indexed)
+        previousQuarterEndMonth = 11; // Dec (0-indexed)
         previousQuarterYear = currentYear - 1;
         quarterName = "Q4";
       } else if (currentMonth >= 3 && currentMonth <= 5) { 
+        // Current: Apr-Jun (Q2) -> Prev: Q1 of Current Year
         previousQuarterStartMonth = 0; 
         previousQuarterEndMonth = 2; 
         previousQuarterYear = currentYear;
         quarterName = "Q1";
       } else if (currentMonth >= 6 && currentMonth <= 8) { 
+        // Current: Jul-Sep (Q3) -> Prev: Q2 of Current Year
         previousQuarterStartMonth = 3; 
         previousQuarterEndMonth = 5; 
         previousQuarterYear = currentYear;
         quarterName = "Q2";
       } else { 
+        // Current: Oct-Dec (Q4) -> Prev: Q3 of Current Year
         previousQuarterStartMonth = 6; 
         previousQuarterEndMonth = 8; 
         previousQuarterYear = currentYear;
         quarterName = "Q3";
       }
 
+      // Calculate Dates
+      // Start Date: 1st of Start Month
       const firstDayOfPreviousQuarter = new Date(previousQuarterYear, previousQuarterStartMonth, 1);
+      
+      // End Date: Last day of End Month
+      // Date(year, month + 1, 0) gives the last day of the 'month'
       const lastDayOfPreviousQuarter = new Date(previousQuarterYear, previousQuarterEndMonth + 1, 0); 
+      
+      // Extend the end date to include the full day (23:59:59.999) for comparison if date objects have time
+      lastDayOfPreviousQuarter.setHours(23, 59, 59, 999);
+
+      // Debugging Dates
+      console.log('Quarter Calculation:', {
+        today: today.toISOString(),
+        currentMonth,
+        currentYear,
+        quarterName,
+        previousQuarterYear,
+        start: firstDayOfPreviousQuarter.toISOString(),
+        end: lastDayOfPreviousQuarter.toISOString()
+      }); 
 
       const monthNames = ["January", "February", "March", "April", "May", "June",
                           "July", "August", "September", "October", "November", "December"];
