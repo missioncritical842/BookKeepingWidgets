@@ -479,7 +479,7 @@
         
         // Debug first few failures to see why they are failing
         // Only log if we haven't found a match yet and it's one of the first few
-        if (!isMatch && Math.random() < 0.01) {
+        if (!isMatch) {
             console.log("Date mismatch:", {
                 val: dateVal,
                 parsed: transactionDate.toISOString(),
