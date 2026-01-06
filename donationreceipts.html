@@ -20,27 +20,38 @@
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
       page-break-after: always;
     }
-    .header {
+    .letterhead {
+      text-align: center;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #333;
+      padding-bottom: 20px;
+    }
+    .org-name {
+      font-size: 28px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin: 0 0 10px 0;
+      color: #2c3e50;
+    }
+    .org-details {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #555;
+    }
+    .contact-info {
+      font-style: italic;
+    }
+    .receipt-header {
       text-align: center;
       margin-bottom: 40px;
     }
-    .header h1 {
+    .receipt-header h2 {
       font-size: 24px;
-      margin: 0 0 10px 0;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-    .header h2 {
-      font-size: 18px;
-      font-weight: normal;
-      color: #555;
       margin: 0;
-    }
-    .org-address {
-      text-align: center;
-      font-size: 14px;
-      color: #666;
-      margin-bottom: 30px;
+      text-transform: uppercase;
+      color: #333;
+      letter-spacing: 1px;
     }
     .donor-info {
       margin-bottom: 30px;
@@ -299,14 +310,18 @@
             }).join('');
 
             page.innerHTML = `
-                <div class="header">
-                    <h1>Headwaters Christian Resources</h1>
-                    <h2>${year} Donation Receipt</h2>
+                <div class="letterhead">
+                    <div class="org-name">Headwaters Christian Resources</div>
+                    <div class="org-details">
+                        PO Box 175, Englewood, CO 80151<br>
+                        <span class="contact-info">
+                            headwatersresources.org &bull; 720-998-6116 &bull; joe@headwatersresources.org
+                        </span>
+                    </div>
                 </div>
 
-                <div class="org-address">
-                    PO Box 175<br>
-                    Englewood, CO 80151
+                <div class="receipt-header">
+                    <h2>${year} Donation Receipt</h2>
                 </div>
 
                 <div class="donor-info">
