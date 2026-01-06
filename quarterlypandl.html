@@ -502,16 +502,16 @@
         let totalExpenses = calculateTotal(hierarchyExpense);
 
         // Calculate Net Profit
-        // In Grist, expenses might be positive numbers in the Amount column.
-        // Usually, P&L = Income - Expenses.
-        // We will assume both sums are positive magnitudes and subtract Expenses.
-        const netProfit = totalIncome - totalExpenses; 
+        // Restore original logic: assume Expenses might be negative (if signed DB) or positive.
+        // But user's original code used: netProfit = totalIncome + totalExpenses;
+        const netProfit = totalIncome + totalExpenses; 
         
         netProfitDisplay.innerText = `$${netProfit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
 
         // Add Totals rows
         addTotalRow(incomeDetails, "Total Income", totalIncome);
-        addTotalRow(expenseDetails, "Total Expenses", totalExpenses);
+        // Display Expenses as positive number for readability
+        addTotalRow(expenseDetails, "Total Expenses", Math.abs(totalExpenses));
 
       } catch (err) {
         console.error("Error in processRecords:", err);
