@@ -222,13 +222,13 @@
     // --- Constants ---
     // The name of the table containing transactions.
     // Ensure this matches your Grist table name EXACTLY.
-    const TRANSACTIONS_TABLE = "Bank_Transactions";
+    const TRANSACTIONS_TABLE = "Transaction_Categorization";
 
-    // Expected column names in Bank_Transactions
+    // Expected column names in Transaction_Categorization
     const COL_AMOUNT = "Amount";
-    const COL_DATE = "Date_Cleared"; // Was "Transaction_Date"
-    const COL_TYPE = "Account_Type_Name";
-    // Hierarchy columns (assumed to be available in Bank_Transactions, e.g. via formulas)
+    const COL_DATE = "Date_Posted"; // Using Date_Posted as it handles accounting adjustments
+    const COL_TYPE = "Account_Type";
+    // Hierarchy columns
     const COL_ACC_1 = "Accounts_1";
     const COL_ACC_2 = "Accounts_2";
     const COL_ACC_3 = "Accounts_3";
