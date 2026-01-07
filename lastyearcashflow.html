@@ -1,0 +1,408 @@
+<!-- Cash Flow Statement Widget -->
+<!-- API-enabled Version: Accesses 'Transaction_Categorization' and related tables directly -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Cash Flow Statement (Last Year v2.2)</title>
+  
+  <!-- External Script -->
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+  
+  <!-- Styling -->
+  <style>
+    /* Container Styling */
+    #cash-flow {
+      font-family: Georgia, serif;
+      margin: 20px;
+      font-size: 14px;
+      color: #333;
+    }
+    /* Main Heading Styling */
+    #cash-flow h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      line-height: 1.2;
+      font-size: 20px;
+    }
+    #cash-flow h2 .line1 {
+      display: block;
+      font-size: 20px;
+      font-weight: bold;
+    }
+    #cash-flow h2 .line2 {
+      display: block;
+      font-size: 16px;
+      font-weight: normal;
+      color: #555;
+    }
+    #cash-flow h2 .line3 {
+      display: block;
+      font-size: 16px;
+      font-weight: normal;
+      color: #555;
+    }
+    /* Section Styling */
+    .section-container {
+      margin-bottom: 30px;
+    }
+    .section-title {
+      font-size: 16px;
+      font-weight: bold;
+      color: #2c3e50;
+      border-bottom: 2px solid #eee;
+      padding-bottom: 5px;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+    }
+    .details-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
+    .details-table th, .details-table td {
+      border: 1px solid #ccc;
+      padding: 6px;
+      vertical-align: middle;
+    }
+    .details-table th {
+      background-color: #e6e6e6;
+      text-align: left;
+    }
+    .details-table td {
+      text-align: right;
+    }
+    .details-table td:first-child {
+      text-align: left;
+    }
+    .total-row {
+      font-weight: bold;
+      background-color: #f9f9f9;
+    }
+    .grand-total-section {
+      font-size: 18px;
+      font-weight: bold;
+      text-align: center;
+      margin-top: 40px;
+      padding: 20px;
+      background-color: #f5f5f5;
+      border: 1px solid #ddd;
+    }
+    #error-message {
+      color: red;
+      font-weight: bold;
+      text-align: center;
+      margin-top: 20px;
+    }
+    /* Indentation */
+    .indent-0 { padding-left: 5px; font-weight: bold; }
+    .indent-1 { padding-left: 20px; }
+    .indent-2 { padding-left: 40px; }
+    .indent-3 { padding-left: 60px; }
+    .indent-4 { padding-left: 80px; }
+  </style>
+</head>
+<body>
+  <div id="cash-flow">
+    <h2>
+      <span class="line1">Headwaters Christian Resources</span>
+      <span class="line2">Cash Flow Statement (Last Year v2.2)</span>
+      <span class="line3" id="subtitle"></span>
+    </h2>
+    
+    <div id="report-content"></div>
+    
+    <div id="grand-total-container" class="grand-total-section">
+        Net Cash Flow: <span id="grand-total">$0.00</span>
+    </div>
+
+    <div id="error-message"></div>
+  </div>
+  
+  <script>
+    grist.ready({
+      columns: [],
+      requiredAccess: 'read table'
+    });
+
+    const TABLE_TRANSACTIONS = "Transaction_Categorization";
+    const TABLE_ACCOUNTS = "Accounts";
+    const TABLE_ACCOUNT_TYPES = "Account_Types";
+    
+    // Columns
+    const COL_TRANS_AMOUNT = "Amount";
+    const COL_TRANS_DATE_CLEARED = "Date_Cleared";
+    const COL_TRANS_DATE_POSTED = "Change_Date_Posted"; 
+    const COL_TRANS_ACCOUNT_REF = "Account_Long_Name"; 
+
+    const COL_ACC_ID = "id"; 
+    const COL_ACC_ACCOUNT_ID = "ACCOUNT_ID"; 
+    const COL_ACC_NAME = "ACCOUNT_NAME";
+    const COL_ACC_TYPE_REF = "ACCOUNT_TYPE"; 
+    const COL_ACC_PARENT = "PARENT_ACCOUNT"; 
+
+    const COL_TYPE_ID = "id"; 
+    const COL_TYPE_NAME = "TYPE_NAME";
+
+    let accountsMap = {}; 
+    let accountsByIdMap = {}; 
+    let accountTypesMap = {}; 
+
+    async function loadData() {
+      const errorMessage = document.getElementById('error-message');
+      try {
+        console.log("Fetching tables...");
+        const [transData, accData, typeData] = await Promise.all([
+          grist.docApi.fetchTable(TABLE_TRANSACTIONS),
+          grist.docApi.fetchTable(TABLE_ACCOUNTS),
+          grist.docApi.fetchTable(TABLE_ACCOUNT_TYPES)
+        ]);
+
+        const typeRecords = convertToRecords(typeData);
+        typeRecords.forEach(rec => {
+          accountTypesMap[rec.id] = rec[COL_TYPE_NAME];
+        });
+
+        const accRecords = convertToRecords(accData);
+        accRecords.forEach(rec => {
+          accountsMap[rec.id] = rec;
+          if (rec[COL_ACC_ACCOUNT_ID]) {
+            accountsByIdMap[rec[COL_ACC_ACCOUNT_ID]] = rec;
+          }
+        });
+
+        const transRecords = convertToRecords(transData);
+        
+        const mappedRecords = transRecords.map(t => {
+          const accRef = t[COL_TRANS_ACCOUNT_REF];
+          if (!accRef) return null; 
+
+          const account = accountsMap[accRef]; 
+          if (!account) return null; 
+
+          const typeRef = account[COL_ACC_TYPE_REF];
+          const typeName = accountTypesMap[typeRef];
+          if (!typeName) return null; 
+
+          const hierarchy = getAccountHierarchy(account);
+
+          let dateVal = t[COL_TRANS_DATE_POSTED];
+          if (!dateVal && dateVal !== 0) { 
+             dateVal = t[COL_TRANS_DATE_CLEARED];
+          }
+
+          return {
+             Amount: parseFloat(t[COL_TRANS_AMOUNT]) || 0,
+             Account_Type_Name: typeName,
+             Account: account[COL_ACC_NAME],
+             Transaction_Date: dateVal,
+             Accounts_1: hierarchy[0] || null,
+             Accounts_2: hierarchy[1] || null,
+             Accounts_3: hierarchy[2] || null,
+             Accounts_4: hierarchy[3] || null
+          };
+        }).filter(r => r !== null);
+
+        processRecords(mappedRecords);
+
+      } catch (err) {
+        console.error("Error loading data:", err);
+        errorMessage.innerText = "Error loading data. Check console.";
+      }
+    }
+
+    function getAccountHierarchy(account) {
+      const path = [];
+      let current = account;
+      let depth = 0;
+      while (current && depth < 10) {
+        path.unshift(current[COL_ACC_NAME]); 
+        const parentId = current[COL_ACC_PARENT];
+        if (parentId) {
+           current = accountsByIdMap[parentId]; 
+        } else {
+           current = null;
+        }
+        depth++;
+      }
+      return path;
+    }
+
+    function convertToRecords(data) {
+      const columns = Object.keys(data);
+      if (columns.length === 0) return [];
+      if (Array.isArray(data)) return data;
+      const numRows = data.id ? data.id.length : 0;
+      const records = [];
+      for (let i = 0; i < numRows; i++) {
+        const record = { id: data.id[i] };
+        columns.forEach(col => {
+          if (col !== 'id') record[col] = data[col][i];
+        });
+        records.push(record);
+      }
+      return records;
+    }
+
+    function processRecords(records) {
+      const reportContent = document.getElementById('report-content');
+      const subtitle = document.getElementById('subtitle');
+      const grandTotalEl = document.getElementById('grand-total');
+      const errorMessage = document.getElementById('error-message');
+
+      reportContent.innerHTML = '';
+      grandTotalEl.innerText = '$0.00';
+      errorMessage.innerText = '';
+
+      // --- Last Year Logic ---
+      const today = new Date();
+      const currentYear = today.getFullYear();
+      const lastYear = currentYear - 1;
+
+      const startDate = new Date(Date.UTC(lastYear, 0, 1));
+      const endDate = new Date(Date.UTC(lastYear, 11, 31)); 
+      
+      subtitle.textContent = `Year ${lastYear}`;
+      
+      const startVal = startDate.getTime() / 1000;
+      const endVal = endDate.getTime() / 1000 + 86399; 
+
+      // Filter
+      const filteredRecords = records.filter(record => {
+        let val = record.Transaction_Date;
+        if (Array.isArray(val)) val = val[1];
+        if (!val) return false;
+        return val >= startVal && val <= endVal;
+      });
+
+      if (filteredRecords.length === 0) {
+        errorMessage.innerText = `No transactions found for Year ${lastYear}.`;
+        return;
+      }
+
+      // Group by Account Type
+      const grouped = {};
+      filteredRecords.forEach(r => {
+          const type = String(r.Account_Type_Name).trim().toUpperCase();
+          if (!grouped[type]) grouped[type] = [];
+          grouped[type].push(r);
+      });
+
+      // Define Order
+      const typeOrder = ["INCOME", "EXPENSE", "ASSET", "LIABILITY", "EQUITY", "TRANSFER"];
+      const sortedTypes = Object.keys(grouped).sort((a, b) => {
+          const idxA = typeOrder.indexOf(a);
+          const idxB = typeOrder.indexOf(b);
+          if (idxA === -1 && idxB === -1) return a.localeCompare(b);
+          if (idxA === -1) return 1;
+          if (idxB === -1) return -1;
+          return idxA - idxB;
+      });
+
+      let grandTotal = 0;
+
+      sortedTypes.forEach(type => {
+          const typeRecords = grouped[type];
+          
+          // Section Container
+          const sectionDiv = document.createElement('div');
+          sectionDiv.className = 'section-container';
+          
+          // Title
+          const title = document.createElement('div');
+          title.className = 'section-title';
+          title.textContent = type;
+          sectionDiv.appendChild(title);
+
+          // Table
+          const table = document.createElement('table');
+          table.className = 'details-table';
+          table.innerHTML = `<tr><th>Account</th><th>Amount</th></tr>`;
+          
+          // Build Hierarchy
+          const hierarchy = sortHierarchy(buildHierarchy(typeRecords));
+          insertHierarchyIntoTable(hierarchy, table);
+
+          // Calculate Total
+          let typeTotal = 0;
+          Object.values(hierarchy).forEach(node => typeTotal += node.amount);
+          
+          // Add to Grand Total
+          grandTotal += typeTotal;
+
+          // Add Total Row
+          const totalRow = table.insertRow();
+          totalRow.className = 'total-row';
+          totalRow.insertCell(0).innerText = `Total ${type}`;
+          totalRow.insertCell(1).innerText = `$${typeTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+
+          sectionDiv.appendChild(table);
+          reportContent.appendChild(sectionDiv);
+      });
+
+      // Update Grand Total
+      grandTotalEl.innerText = `$${grandTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    }
+
+    function buildHierarchy(records) {
+      const hierarchy = {};
+      records.forEach(record => {
+          const amount = record.Amount;
+          const accounts1 = record.Accounts_1 || 'Uncategorized';
+          const accounts2 = record.Accounts_2 || '';
+          const accounts3 = record.Accounts_3 || '';
+          const accounts4 = record.Accounts_4 || '';
+
+          if (!hierarchy[accounts1]) hierarchy[accounts1] = { amount: 0, children: {} };
+          hierarchy[accounts1].amount += amount;
+
+          if (accounts2) {
+            if (!hierarchy[accounts1].children[accounts2]) hierarchy[accounts1].children[accounts2] = { amount: 0, children: {} };
+            hierarchy[accounts1].children[accounts2].amount += amount;
+
+            if (accounts3) {
+              if (!hierarchy[accounts1].children[accounts2].children[accounts3]) hierarchy[accounts1].children[accounts2].children[accounts3] = { amount: 0, children: {} };
+              hierarchy[accounts1].children[accounts2].children[accounts3].amount += amount;
+
+              if (accounts4) {
+                if (!hierarchy[accounts1].children[accounts2].children[accounts3].children[accounts4]) hierarchy[accounts1].children[accounts2].children[accounts3].children[accounts4] = { amount: 0 };
+                hierarchy[accounts1].children[accounts2].children[accounts3].children[accounts4].amount += amount;
+              }
+            }
+          }
+      });
+      return hierarchy;
+    }
+
+    function sortHierarchy(hierarchy) {
+      const sorted = {};
+      const keys = Object.keys(hierarchy).sort((a, b) => a.localeCompare(b));
+      keys.forEach(key => {
+        sorted[key] = { ...hierarchy[key] };
+        if (sorted[key].children && Object.keys(sorted[key].children).length > 0) {
+          sorted[key].children = sortHierarchy(sorted[key].children);
+        }
+      });
+      return sorted;
+    }
+
+    function insertHierarchyIntoTable(hierarchy, tableBody, level = 0) {
+      const indentClass = `indent-${level}`;
+      Object.keys(hierarchy).forEach(account => {
+        const row = tableBody.insertRow();
+        const accountCell = row.insertCell(0);
+        const amountCell = row.insertCell(1);
+        accountCell.innerHTML = `<span class="${indentClass}">${account}</span>`;
+        amountCell.innerText = `$${hierarchy[account].amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+
+        if (hierarchy[account].children && Object.keys(hierarchy[account].children).length > 0) {
+          insertHierarchyIntoTable(hierarchy[account].children, tableBody, Math.min(level + 1, 4));
+        }
+      });
+    }
+
+    loadData();
+  </script>
+</body>
+</html>
