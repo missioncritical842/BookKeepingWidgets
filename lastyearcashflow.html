@@ -155,7 +155,7 @@
       const errorMessage = document.getElementById('error-message');
       try {
         console.log("Fetching tables...");
-        const [transData, accData, typeData] = await Promise.all([
+        const [transData, accData, typeData, orgData] = await Promise.all([
           grist.docApi.fetchTable(TABLE_TRANSACTIONS),
           grist.docApi.fetchTable(TABLE_ACCOUNTS),
           grist.docApi.fetchTable(TABLE_ACCOUNT_TYPES)
