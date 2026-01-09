@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>IRS Form 941 Helper (v1.2)</title>
+  <title>IRS Form 941 Helper (v1.3)</title>
   <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
   <style>
     body {
@@ -70,7 +70,7 @@
   </div>
 
   <div class="controls">
-    <label for="quarter-select"><strong>Select Quarter:</strong></label>
+    <label for="quarter-select"><strong>Select Period:</strong></label>
     <select id="quarter-select"></select>
     <button onclick="loadData()">Refresh</button>
   </div>
@@ -78,7 +78,7 @@
   <div id="error-message"></div>
 
   <div id="report-container">
-    <div style="color: #666; font-style: italic;">Select a quarter to view data...</div>
+    <div style="color: #666; font-style: italic;">Select a period to view data...</div>
   </div>
 
   <script>
@@ -120,12 +120,25 @@
       const select = document.getElementById('quarter-select');
       const today = new Date();
       const currentYear = today.getFullYear();
-      const currentMonth = today.getMonth(); // 0-11
       
+      // Add Annual Options (Current Year + Last 2 Years)
+      for (let i = 0; i < 3; i++) {
+        const y = currentYear - i;
+        const opt = document.createElement('option');
+        opt.value = `${y}-ALL`;
+        opt.text = `${y} Full Year`;
+        select.appendChild(opt);
+      }
+
+      // Add Separator
+      const sep = document.createElement('option');
+      sep.disabled = true;
+      sep.text = "──────────";
+      select.appendChild(sep);
+
       // Generate last 8 quarters
       for (let i = 0; i < 8; i++) {
         // Calculate Q and Year for offset i
-        // Each step back is 3 months
         const targetDate = new Date(today.getFullYear(), today.getMonth() - (i * 3), 1);
         const y = targetDate.getFullYear();
         const m = targetDate.getMonth();
@@ -137,8 +150,10 @@
         select.appendChild(opt);
       }
       
-      // Default to previous quarter (index 1 usually, unless we are at start of quarter)
-      select.selectedIndex = 1; 
+      // Default to previous quarter (usually index 4 because of the 3 annual options + 1 separator)
+      // If we are early in the year, Q4 of previous year is likely what we want.
+      // Let's just select the first Quarter option (index 4)
+      select.selectedIndex = 4; 
       
       select.addEventListener('change', loadData);
     }
@@ -166,11 +181,19 @@
         const selVal = document.getElementById('quarter-select').value;
         const [yearStr, qStr] = selVal.split('-');
         const year = parseInt(yearStr);
-        const q = parseInt(qStr);
+        
+        let startMonth, endMonth;
 
-        // Q1: Jan(0)-Mar(2), Q2: Apr(3)-Jun(5), ...
-        const startMonth = (q - 1) * 3;
-        const endMonth = startMonth + 2;
+        if (qStr === 'ALL') {
+          // Full Year
+          startMonth = 0;  // Jan
+          endMonth = 11;   // Dec
+        } else {
+          // Specific Quarter
+          const q = parseInt(qStr);
+          startMonth = (q - 1) * 3;
+          endMonth = startMonth + 2;
+        }
         
         // UTC Timestamps
         const startTs = new Date(Date.UTC(year, startMonth, 1)).getTime() / 1000;
