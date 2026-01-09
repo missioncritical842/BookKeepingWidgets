@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Form 1099-NEC Generator (v1.0)</title>
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f0f0;
+      padding: 20px;
+      margin: 0;
+    }
+    
+    .controls {
+      background: white;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .controls label {
+      font-weight: bold;
+      margin-right: 10px;
+    }
+    
+    .controls select, .controls input {
+      font-size: 14px;
+      padding: 5px;
+      margin-right: 15px;
+    }
+    
+    .controls button {
+      font-size: 14px;
+      padding: 8px 15px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    
+    .controls button:hover {
+      background: #45a049;
+    }
+    
+    #error-message {
+      color: red;
+      font-weight: bold;
+      margin: 10px 0;
+    }
+    
+    .forms-container {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    
+    /* Form 1099-NEC Layout - Based on standard IRS form dimensions */
+    .form-1099 {
+      width: 8.5in;
+      height: 11in;
+      background: white;
+      margin: 0 auto;
+      padding: 0;
+      position: relative;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      page-break-after: always;
+    }
+    
+    /* Form Header */
+    .form-header {
+      position: absolute;
+      top: 0.2in;
+      left: 0.3in;
+      right: 0.3in;
+      font-size: 10pt;
+      font-weight: bold;
+    }
+    
+    .form-title {
+      text-align: center;
+      font-size: 14pt;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    
+    .copy-label {
+      position: absolute;
+      top: 0.5in;
+      right: 0.3in;
+      font-size: 10pt;
+      font-weight: bold;
+      border: 1px solid #000;
+      padding: 2px 8px;
+    }
+    
+    /* Payer Information Box (Top Left) */
+    .payer-box {
+      position: absolute;
+      top: 0.9in;
+      left: 0.3in;
+      width: 3.5in;
+      border: 1px solid #000;
+      padding: 5px;
+      font-size: 9pt;
+    }
+    
+    .payer-label {
+      font-weight: bold;
+      margin-bottom: 3px;
+    }
+    
+    .payer-name {
+      margin-bottom: 2px;
+      min-height: 0.2in;
+    }
+    
+    .payer-address {
+      margin-bottom: 2px;
+      min-height: 0.2in;
+    }
+    
+    .payer-city-state-zip {
+      margin-bottom: 2px;
+      min-height: 0.2in;
+    }
+    
+    /* Recipient Information Box (Top Right) */
+    .recipient-box {
+      position: absolute;
+      top: 0.9in;
+      right: 0.3in;
+      width: 3.5in;
+      border: 1px solid #000;
+      padding: 5px;
+      font-size: 9pt;
+    }
+    
+    .recipient-label {
+      font-weight: bold;
+      margin-bottom: 3px;
+    }
+    
+    .recipient-name {
+      margin-bottom: 2px;
+      min-height: 0.2in;
+    }
+    
+    .recipient-address {
+      margin-bottom: 2px;
+      min-height: 0.2in;
+    }
+    
+    .recipient-city-state-zip {
+      margin-bottom: 2px;
+      min-height: 0.2in;
+    }
+    
+    /* Account Number Box */
+    .account-number-box {
+      position: absolute;
+      top: 2.0in;
+      left: 0.3in;
+      width: 1.5in;
+      border: 1px solid #000;
+      padding: 5px;
+      font-size: 9pt;
+    }
+    
+    /* TIN Boxes */
+    .payer-tin-box {
+      position: absolute;
+      top: 2.0in;
+      left: 2.0in;
+      width: 1.8in;
+      border: 1px solid #000;
+      padding: 5px;
+      font-size: 9pt;
+    }
+    
+    .recipient-tin-box {
+      position: absolute;
+      top: 2.0in;
+      right: 0.3in;
+      width: 1.8in;
+      border: 1px solid #000;
+      padding: 5px;
+      font-size: 9pt;
+    }
+    
+    /* Box 1 - Nonemployee Compensation */
+    .box1 {
+      position: absolute;
+      top: 2.5in;
+      left: 0.3in;
+      width: 7.9in;
+      border: 1px solid #000;
+      padding: 5px;
+      font-size: 9pt;
+    }
+    
+    .box1-label {
+      font-weight: bold;
+      display: inline-block;
+      width: 2.5in;
+    }
+    
+    .box1-amount {
+      display: inline-block;
+      font-weight: bold;
+      font-size: 11pt;
+      text-align: right;
+      width: 5.0in;
+    }
+    
+    /* Tax Year */
+    .tax-year {
+      position: absolute;
+      top: 3.0in;
+      left: 0.3in;
+      font-size: 9pt;
+    }
+    
+    .tax-year-input {
+      border: 1px solid #000;
+      padding: 2px 5px;
+      width: 0.8in;
+      display: inline-block;
+      margin-left: 5px;
+    }
+    
+    /* Footer Instructions */
+    .footer-instructions {
+      position: absolute;
+      bottom: 0.3in;
+      left: 0.3in;
+      right: 0.3in;
+      font-size: 8pt;
+      border-top: 1px solid #000;
+      padding-top: 5px;
+    }
+    
+    @media print {
+      body {
+        background: white;
+        padding: 0;
+      }
+      
+      .controls {
+        display: none;
+      }
+      
+      .form-1099 {
+        box-shadow: none;
+        margin: 0;
+      }
+      
+      .forms-container {
+        gap: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="controls">
+    <label for="year-select">Tax Year:</label>
+    <select id="year-select"></select>
+    
+    <label for="copy-select">Copy:</label>
+    <select id="copy-select">
+      <option value="A">Copy A - For IRS</option>
+      <option value="B" selected>Copy B - For Recipient</option>
+      <option value="C">Copy C - For Payer</option>
+      <option value="D">Copy D - For State</option>
+    </select>
+    
+    <button onclick="loadData()">Generate Forms</button>
+  </div>
+  
+  <div id="error-message"></div>
+  
+  <div id="forms-container" class="forms-container"></div>
+  
+  <script>
+    grist.ready({ columns: [], requiredAccess: 'read table' });
+    
+    const TABLE_TRANSACTIONS = "Transaction_Categorization";
+    const TABLE_ACCOUNTS = "Accounts";
+    const TABLE_PEOPLE = "People_Companies";
+    const TABLE_ORG_SETTINGS = "Organization_Settings";
+    
+    // Column Constants
+    const COL_TRANS_AMOUNT = "Amount";
+    const COL_TRANS_DATE = "Change_Date_Posted";
+    const COL_TRANS_DATE_BACKUP = "Date_Cleared";
+    const COL_TRANS_ACCOUNT = "Account_Long_Name";
+    const COL_TRANS_FROM_TO = "From_To";
+    
+    const COL_ACC_NAME = "ACCOUNT_NAME";
+    
+    const COL_PEOPLE_NAME = "Display_Name";
+    const COL_PEOPLE_STREET1 = "Street1";
+    const COL_PEOPLE_STREET2 = "Street2";
+    const COL_PEOPLE_CITY = "City";
+    const COL_PEOPLE_STATE = "State";
+    const COL_PEOPLE_ZIP = "Zip";
+    const COL_PEOPLE_TIN = "TIN"; // Taxpayer Identification Number (SSN/EIN) - NEEDS TO BE ADDED
+    
+    const COL_ORG_NAME = "Org_Name";
+    const COL_ORG_ADDRESS = "Street_Address";
+    const COL_ORG_CITY_STATE_ZIP = "City_State_Zip";
+    const COL_ORG_TIN = "EIN"; // Employer Identification Number - NEEDS TO BE ADDED
+    
+    const TARGET_ACCOUNT_NAME = "blessing gift";
+    
+    // Helper: Convert Grist Columns to Records
+    function convertToRecords(data) {
+      const columns = Object.keys(data);
+      if (columns.length === 0) return [];
+      if (Array.isArray(data)) return data;
+      const numRows = data.id ? data.id.length : 0;
+      const records = [];
+      for (let i = 0; i < numRows; i++) {
+        const record = { id: data.id[i] };
+        columns.forEach(col => { if (col !== 'id') record[col] = data[col][i]; });
+        records.push(record);
+      }
+      return records;
+    }
+    
+    // Initialize Year Select
+    function initYearSelect() {
+      const select = document.getElementById('year-select');
+      const currentYear = new Date().getFullYear();
+      
+      // Add last 3 years
+      for (let i = 0; i < 3; i++) {
+        const year = currentYear - i;
+        const opt = document.createElement('option');
+        opt.value = year;
+        opt.text = year;
+        if (i === 1) opt.selected = true; // Default to previous year
+        select.appendChild(opt);
+      }
+    }
+    
+    async function loadData() {
+      const errMsg = document.getElementById('error-message');
+      const container = document.getElementById('forms-container');
+      errMsg.innerText = '';
+      container.innerHTML = 'Loading...';
+      
+      try {
+        const [transData, accData, peopleData, orgData] = await Promise.all([
+          grist.docApi.fetchTable(TABLE_TRANSACTIONS),
+          grist.docApi.fetchTable(TABLE_ACCOUNTS),
+          grist.docApi.fetchTable(TABLE_PEOPLE),
+          grist.docApi.fetchTable(TABLE_ORG_SETTINGS)
+        ]);
+        
+        const transactions = convertToRecords(transData);
+        const accounts = convertToRecords(accData);
+        const people = convertToRecords(peopleData);
+        const orgRecords = convertToRecords(orgData);
+        
+        // Get Organization Settings
+        const orgSettings = orgRecords.length > 0 ? orgRecords[0] : {};
+        const orgInfo = {
+          name: orgSettings[COL_ORG_NAME] || "Organization Name",
+          address: orgSettings[COL_ORG_ADDRESS] || "",
+          cityStateZip: orgSettings[COL_ORG_CITY_STATE_ZIP] || "",
+          ein: orgSettings[COL_ORG_TIN] || "" // Will show error if missing
+        };
+        
+        if (!orgInfo.ein) {
+          errMsg.innerText = "ERROR: EIN field missing in Organization_Settings table. Please add 'EIN' column.";
+          container.innerHTML = "";
+          return;
+        }
+        
+        // Get Tax Year
+        const taxYear = parseInt(document.getElementById('year-select').value);
+        const copyType = document.getElementById('copy-select').value;
+        
+        // Date Range for Tax Year
+        const startTs = new Date(Date.UTC(taxYear, 0, 1)).getTime() / 1000;
+        const endTs = new Date(Date.UTC(taxYear, 11, 31, 23, 59, 59)).getTime() / 1000;
+        
+        // Find Blessing Gift Account
+        const blessingGiftAccount = accounts.find(a => 
+          a[COL_ACC_NAME] && a[COL_ACC_NAME].toLowerCase().includes(TARGET_ACCOUNT_NAME)
+        );
+        
+        if (!blessingGiftAccount) {
+          errMsg.innerText = `ERROR: Account containing "${TARGET_ACCOUNT_NAME}" not found.`;
+          container.innerHTML = "";
+          return;
+        }
+        
+        // Map People by ID
+        const peopleMap = {};
+        people.forEach(p => {
+          peopleMap[p.id] = p;
+        });
+        
+        // Aggregate transactions by recipient
+        const recipientTotals = {};
+        
+        transactions.forEach(t => {
+          // Date Check
+          let d = t[COL_TRANS_DATE];
+          if (!d && d !== 0) d = t[COL_TRANS_DATE_BACKUP];
+          if (Array.isArray(d)) d = d[1];
+          if (!d) return;
+          
+          if (d < startTs || d > endTs) return;
+          
+          // Account Check
+          if (t[COL_TRANS_ACCOUNT] !== blessingGiftAccount.id) return;
+          
+          // Recipient Check
+          const recipientId = t[COL_TRANS_FROM_TO];
+          if (!recipientId) return;
+          
+          const amount = parseFloat(t[COL_TRANS_AMOUNT]) || 0;
+          if (Math.abs(amount) < 0.01) return;
+          
+          if (!recipientTotals[recipientId]) {
+            recipientTotals[recipientId] = 0;
+          }
+          recipientTotals[recipientId] += amount;
+        });
+        
+        // Filter recipients with $600 or more (IRS threshold)
+        const qualifiedRecipients = Object.keys(recipientTotals)
+          .filter(recipientId => recipientTotals[recipientId] >= 600)
+          .map(recipientId => {
+            const person = peopleMap[recipientId];
+            if (!person) return null;
+            
+            if (!person[COL_PEOPLE_TIN]) {
+              console.warn(`Recipient ${person[COL_PEOPLE_NAME]} missing TIN`);
+            }
+            
+            return {
+              person: person,
+              amount: recipientTotals[recipientId]
+            };
+          })
+          .filter(r => r !== null)
+          .sort((a, b) => a.person[COL_PEOPLE_NAME].localeCompare(b.person[COL_PEOPLE_NAME]));
+        
+        if (qualifiedRecipients.length === 0) {
+          errMsg.innerText = "No recipients found with $600 or more in blessing gift payments for the selected year.";
+          container.innerHTML = "";
+          return;
+        }
+        
+        // Generate Forms
+        let html = '';
+        qualifiedRecipients.forEach((recipient, index) => {
+          const person = recipient.person;
+          const amount = recipient.amount;
+          
+          // Format TIN (XXX-XX-XXXX)
+          const tin = person[COL_PEOPLE_TIN] || "";
+          const formattedTIN = tin ? tin.replace(/(\d{3})(\d{2})(\d{4})/, "$1-$2-$3") : "";
+          const formattedEIN = orgInfo.ein.replace(/(\d{2})(\d{7})/, "$1-$2");
+          
+          // Build address
+          const recipientAddress = person[COL_PEOPLE_STREET1] || "";
+          const recipientCityStateZip = [
+            person[COL_PEOPLE_CITY] || "",
+            person[COL_PEOPLE_STATE] || "",
+            person[COL_PEOPLE_ZIP] || ""
+          ].filter(x => x).join(", ");
+          
+          html += `
+            <div class="form-1099">
+              <div class="form-header">
+                <div class="form-title">Form 1099-NEC</div>
+                <div class="copy-label">Copy ${copyType}</div>
+              </div>
+              
+              <div class="payer-box">
+                <div class="payer-label">PAYER'S name, street address, city, state, ZIP code</div>
+                <div class="payer-name">${orgInfo.name}</div>
+                <div class="payer-address">${orgInfo.address}</div>
+                <div class="payer-city-state-zip">${orgInfo.cityStateZip}</div>
+              </div>
+              
+              <div class="recipient-box">
+                <div class="recipient-label">RECIPIENT'S name</div>
+                <div class="recipient-name">${person[COL_PEOPLE_NAME] || ""}</div>
+                <div class="recipient-address">${recipientAddress}</div>
+                <div class="recipient-city-state-zip">${recipientCityStateZip}</div>
+              </div>
+              
+              <div class="account-number-box">
+                <div style="font-size: 8pt; margin-bottom: 2px;">Account number (optional)</div>
+                <div style="min-height: 0.3in;"></div>
+              </div>
+              
+              <div class="payer-tin-box">
+                <div style="font-size: 8pt; margin-bottom: 2px;">PAYER'S TIN</div>
+                <div style="font-weight: bold; font-size: 11pt;">${formattedEIN}</div>
+              </div>
+              
+              <div class="recipient-tin-box">
+                <div style="font-size: 8pt; margin-bottom: 2px;">RECIPIENT'S TIN</div>
+                <div style="font-weight: bold; font-size: 11pt;">${formattedTIN}</div>
+              </div>
+              
+              <div class="box1">
+                <span class="box1-label">1 Nonemployee compensation</span>
+                <span class="box1-amount">$${amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+              </div>
+              
+              <div class="tax-year">
+                <strong>Tax year</strong> <span class="tax-year-input">${taxYear}</span>
+              </div>
+              
+              <div class="footer-instructions">
+                <strong>Form 1099-NEC</strong> - Copy ${copyType} is for ${copyType === 'A' ? 'IRS' : copyType === 'B' ? 'Recipient' : copyType === 'C' ? 'Payer' : 'State'}.
+              </div>
+            </div>
+          `;
+        });
+        
+        container.innerHTML = html;
+        
+      } catch (e) {
+        console.error(e);
+        errMsg.innerText = "Error: " + e.message;
+        container.innerHTML = "";
+      }
+    }
+    
+    initYearSelect();
+    loadData();
+  </script>
+</body>
+</html>
+
