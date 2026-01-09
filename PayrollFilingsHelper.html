@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Payroll Filings Helper (v1.7)</title>
+  <title>Payroll Filings Helper (v1.8)</title>
   <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
   <style>
     body {
@@ -86,14 +86,16 @@
 
     const TABLE_TRANSACTIONS = "Transaction_Categorization";
     const TABLE_ACCOUNTS = "Accounts";
+    const TABLE_PEOPLE = "People_Companies";
     
     const COL_TRANS_AMOUNT = "Amount";
     const COL_TRANS_DATE = "Change_Date_Posted"; // Or Date_Cleared
     const COL_TRANS_DATE_BACKUP = "Date_Cleared";
     const COL_TRANS_ACCOUNT = "Account_Long_Name";
-    const COL_FROM_TO = "From/To"; // Recipient field for 1099-NEC
+    const COL_FROM_TO = "From_To"; // Ref to People_Companies
     
     const COL_ACCOUNT_NAME = "ACCOUNT_NAME";
+    const COL_PEOPLE_NAME = "Display_Name"; // Name field in People_Companies
 
     // Strict Keywords for 941
     const KEYWORDS = [
@@ -166,17 +168,23 @@
       container.innerHTML = 'Loading...';
 
       try {
-        const [transData, accData] = await Promise.all([
+        const [transData, accData, peopleData] = await Promise.all([
           grist.docApi.fetchTable(TABLE_TRANSACTIONS),
-          grist.docApi.fetchTable(TABLE_ACCOUNTS)
+          grist.docApi.fetchTable(TABLE_ACCOUNTS),
+          grist.docApi.fetchTable(TABLE_PEOPLE)
         ]);
 
         const transactions = convertToRecords(transData);
         const accounts = convertToRecords(accData);
+        const people = convertToRecords(peopleData);
 
         // Map Account ID to Name
         const accountMap = {};
         accounts.forEach(a => accountMap[a.id] = a[COL_ACCOUNT_NAME]);
+        
+        // Map People ID to Display Name
+        const peopleMap = {};
+        people.forEach(p => peopleMap[p.id] = p[COL_PEOPLE_NAME] || "Unknown Recipient");
 
         // Get Date Range
         const selVal = document.getElementById('quarter-select').value;
@@ -260,8 +268,12 @@
           const amount = parseFloat(t[COL_TRANS_AMOUNT]) || 0;
           if (Math.abs(amount) < 0.01) return; // Skip zero
           
-          // Get recipient from From/To field
-          const recipient = t[COL_FROM_TO] || "Unknown Recipient";
+          // Get recipient ID from From_To field (reference to People_Companies)
+          const recipientId = t[COL_FROM_TO];
+          if (!recipientId) return; // Skip if no recipient
+          
+          // Look up recipient name from People_Companies
+          const recipient = peopleMap[recipientId] || "Unknown Recipient";
           
           if (!necRecipientTotals[recipient]) {
             necRecipientTotals[recipient] = 0;
