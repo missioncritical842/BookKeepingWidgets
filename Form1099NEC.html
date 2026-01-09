@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Form 1099-NEC Generator (v1.1)</title>
+  <title>Form 1099-NEC Generator (v1.2)</title>
   <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
   <style>
     body {
@@ -57,208 +57,142 @@
       gap: 20px;
     }
     
-    /* Form 1099-NEC Layout - Based on standard IRS form dimensions */
+    /* Form 1099-NEC Layout - Data only for pre-printed forms */
     .form-1099 {
       width: 8.5in;
       height: 11in;
-      background: white;
+      background: transparent;
       margin: 0 auto;
       padding: 0;
       position: relative;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
       page-break-after: always;
     }
     
-    /* Form Header */
-    .form-header {
+    /* Data fields only - no borders, labels, or boxes */
+    .data-field {
       position: absolute;
-      top: 0.2in;
-      left: 0.3in;
-      right: 0.3in;
       font-size: 10pt;
-      font-weight: bold;
+      color: #000;
+      background: transparent;
+      border: none;
+      padding: 0;
+      margin: 0;
     }
     
-    .form-title {
-      text-align: center;
-      font-size: 14pt;
-      font-weight: bold;
-      margin-bottom: 5px;
-    }
-    
-    .copy-label {
-      position: absolute;
-      top: 0.5in;
-      right: 0.3in;
-      font-size: 10pt;
-      font-weight: bold;
-      border: 1px solid #000;
-      padding: 2px 8px;
-    }
-    
-    /* Payer Information Box (Top Left) */
-    .payer-box {
-      position: absolute;
-      top: 0.9in;
-      left: 0.3in;
-      width: 3.5in;
-      border: 1px solid #000;
-      padding: 5px;
-      font-size: 9pt;
-    }
-    
-    .payer-label {
-      font-weight: bold;
-      margin-bottom: 3px;
-    }
-    
+    /* Payer Information (Top Left) */
     .payer-name {
-      margin-bottom: 2px;
-      min-height: 0.2in;
+      top: 0.95in;
+      left: 0.35in;
+      width: 3.4in;
+      font-weight: normal;
     }
     
     .payer-address {
-      margin-bottom: 2px;
-      min-height: 0.2in;
+      top: 1.15in;
+      left: 0.35in;
+      width: 3.4in;
     }
     
     .payer-city-state-zip {
-      margin-bottom: 2px;
-      min-height: 0.2in;
+      top: 1.35in;
+      left: 0.35in;
+      width: 3.4in;
     }
     
-    /* Recipient Information Box (Top Right) */
-    .recipient-box {
-      position: absolute;
-      top: 0.9in;
-      right: 0.3in;
-      width: 3.5in;
-      border: 1px solid #000;
-      padding: 5px;
-      font-size: 9pt;
-    }
-    
-    .recipient-label {
-      font-weight: bold;
-      margin-bottom: 3px;
-    }
-    
+    /* Recipient Information (Top Right) */
     .recipient-name {
-      margin-bottom: 2px;
-      min-height: 0.2in;
+      top: 0.95in;
+      right: 0.35in;
+      width: 3.4in;
+      text-align: left;
     }
     
     .recipient-address {
-      margin-bottom: 2px;
-      min-height: 0.2in;
+      top: 1.15in;
+      right: 0.35in;
+      width: 3.4in;
+      text-align: left;
     }
     
     .recipient-city-state-zip {
-      margin-bottom: 2px;
-      min-height: 0.2in;
+      top: 1.35in;
+      right: 0.35in;
+      width: 3.4in;
+      text-align: left;
     }
     
-    /* Account Number Box */
-    .account-number-box {
-      position: absolute;
-      top: 2.0in;
-      left: 0.3in;
-      width: 1.5in;
-      border: 1px solid #000;
-      padding: 5px;
-      font-size: 9pt;
+    /* Account Number (optional) */
+    .account-number {
+      top: 2.05in;
+      left: 0.35in;
+      width: 1.4in;
     }
     
-    /* TIN Boxes */
-    .payer-tin-box {
-      position: absolute;
-      top: 2.0in;
-      left: 2.0in;
-      width: 1.8in;
-      border: 1px solid #000;
-      padding: 5px;
-      font-size: 9pt;
+    /* TIN Fields */
+    .payer-tin {
+      top: 2.05in;
+      left: 2.05in;
+      width: 1.7in;
+      font-weight: bold;
+      letter-spacing: 1px;
     }
     
-    .recipient-tin-box {
-      position: absolute;
-      top: 2.0in;
-      right: 0.3in;
-      width: 1.8in;
-      border: 1px solid #000;
-      padding: 5px;
-      font-size: 9pt;
+    .recipient-tin {
+      top: 2.05in;
+      right: 0.35in;
+      width: 1.7in;
+      font-weight: bold;
+      letter-spacing: 1px;
+      text-align: left;
     }
     
     /* Box 1 - Nonemployee Compensation */
-    .box1 {
-      position: absolute;
-      top: 2.5in;
-      left: 0.3in;
-      width: 7.9in;
-      border: 1px solid #000;
-      padding: 5px;
-      font-size: 9pt;
-    }
-    
-    .box1-label {
-      font-weight: bold;
-      display: inline-block;
-      width: 2.5in;
-    }
-    
     .box1-amount {
-      display: inline-block;
+      top: 2.55in;
+      right: 0.35in;
+      width: 1.5in;
+      text-align: right;
       font-weight: bold;
       font-size: 11pt;
-      text-align: right;
-      width: 5.0in;
     }
     
     /* Tax Year */
-    .tax-year {
-      position: absolute;
-      top: 3.0in;
-      left: 0.3in;
-      font-size: 9pt;
-    }
-    
-    .tax-year-input {
-      border: 1px solid #000;
-      padding: 2px 5px;
-      width: 0.8in;
-      display: inline-block;
-      margin-left: 5px;
-    }
-    
-    /* Footer Instructions */
-    .footer-instructions {
-      position: absolute;
-      bottom: 0.3in;
-      left: 0.3in;
-      right: 0.3in;
-      font-size: 8pt;
-      border-top: 1px solid #000;
-      padding-top: 5px;
+    .tax-year-value {
+      top: 3.05in;
+      left: 1.2in;
+      width: 0.7in;
+      font-weight: bold;
     }
     
     @media print {
       body {
-        background: white;
+        background: transparent;
         padding: 0;
+        margin: 0;
       }
       
       .controls {
         display: none;
       }
       
+      #error-message {
+        display: none;
+      }
+      
       .form-1099 {
+        background: transparent;
         box-shadow: none;
         margin: 0;
+        page-break-after: always;
       }
       
       .forms-container {
         gap: 0;
+      }
+      
+      .data-field {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
       }
     }
   </style>
@@ -495,52 +429,28 @@
           
           html += `
             <div class="form-1099">
-              <div class="form-header">
-                <div class="form-title">Form 1099-NEC</div>
-                <div class="copy-label">Copy ${copyType}</div>
-              </div>
+              <!-- Payer Information (Top Left) -->
+              <div class="data-field payer-name">${orgInfo.name}</div>
+              <div class="data-field payer-address">${orgInfo.address}</div>
+              <div class="data-field payer-city-state-zip">${orgInfo.cityStateZip}</div>
               
-              <div class="payer-box">
-                <div class="payer-label">PAYER'S name, street address, city, state, ZIP code</div>
-                <div class="payer-name">${orgInfo.name}</div>
-                <div class="payer-address">${orgInfo.address}</div>
-                <div class="payer-city-state-zip">${orgInfo.cityStateZip}</div>
-              </div>
+              <!-- Recipient Information (Top Right) -->
+              <div class="data-field recipient-name">${person[COL_PEOPLE_NAME] || ""}</div>
+              <div class="data-field recipient-address">${recipientAddress}</div>
+              <div class="data-field recipient-city-state-zip">${recipientCityStateZip}</div>
               
-              <div class="recipient-box">
-                <div class="recipient-label">RECIPIENT'S name</div>
-                <div class="recipient-name">${person[COL_PEOPLE_NAME] || ""}</div>
-                <div class="recipient-address">${recipientAddress}</div>
-                <div class="recipient-city-state-zip">${recipientCityStateZip}</div>
-              </div>
+              <!-- Account Number (optional - left blank) -->
+              <div class="data-field account-number"></div>
               
-              <div class="account-number-box">
-                <div style="font-size: 8pt; margin-bottom: 2px;">Account number (optional)</div>
-                <div style="min-height: 0.3in;"></div>
-              </div>
+              <!-- TIN Fields -->
+              <div class="data-field payer-tin">${formattedEIN}</div>
+              <div class="data-field recipient-tin">${formattedTIN}</div>
               
-              <div class="payer-tin-box">
-                <div style="font-size: 8pt; margin-bottom: 2px;">PAYER'S TIN</div>
-                <div style="font-weight: bold; font-size: 11pt;">${formattedEIN}</div>
-              </div>
+              <!-- Box 1 - Nonemployee Compensation -->
+              <div class="data-field box1-amount">$${amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
               
-              <div class="recipient-tin-box">
-                <div style="font-size: 8pt; margin-bottom: 2px;">RECIPIENT'S TIN</div>
-                <div style="font-weight: bold; font-size: 11pt;">${formattedTIN}</div>
-              </div>
-              
-              <div class="box1">
-                <span class="box1-label">1 Nonemployee compensation</span>
-                <span class="box1-amount">$${amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-              </div>
-              
-              <div class="tax-year">
-                <strong>Tax year</strong> <span class="tax-year-input">${taxYear}</span>
-              </div>
-              
-              <div class="footer-instructions">
-                <strong>Form 1099-NEC</strong> - Copy ${copyType} is for ${copyType === 'A' ? 'IRS' : copyType === 'B' ? 'Recipient' : copyType === 'C' ? 'Payer' : 'State'}.
-              </div>
+              <!-- Tax Year -->
+              <div class="data-field tax-year-value">${taxYear}</div>
             </div>
           `;
         });
