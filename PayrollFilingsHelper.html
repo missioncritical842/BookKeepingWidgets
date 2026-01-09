@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Payroll Filings Helper (v1.6)</title>
+  <title>Payroll Filings Helper (v1.7)</title>
   <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
   <style>
     body {
@@ -91,6 +91,7 @@
     const COL_TRANS_DATE = "Change_Date_Posted"; // Or Date_Cleared
     const COL_TRANS_DATE_BACKUP = "Date_Cleared";
     const COL_TRANS_ACCOUNT = "Account_Long_Name";
+    const COL_FROM_TO = "From/To"; // Recipient field for 1099-NEC
     
     const COL_ACCOUNT_NAME = "ACCOUNT_NAME";
 
@@ -222,9 +223,11 @@
 
         // Filter for Payroll Items ONLY
         const payrollItems = [];
-        // Filter for 1099-NEC Expenses (blessing gift)
-        const necItems = [];
-
+        
+        // Process 1099-NEC Expenses (blessing gift) by recipient
+        const necRecipientTotals = {};
+        
+        // First, process payroll items from accountTotals
         Object.keys(accountTotals).forEach(name => {
           const amt = accountTotals[name];
           if (Math.abs(amt) < 0.01) return; // Skip zero
@@ -236,12 +239,41 @@
           if (payrollMatch) {
             payrollItems.push({ name, amount: amt });
           }
-          
-          // Check for blessing gift (1099-NEC)
-          if (lowerName.includes("blessing gift")) {
-            necItems.push({ name, amount: amt });
-          }
         });
+
+        // Process 1099-NEC transactions by recipient
+        transactions.forEach(t => {
+          // Date Check
+          let d = t[COL_TRANS_DATE];
+          if (!d && d !== 0) d = t[COL_TRANS_DATE_BACKUP];
+          if (Array.isArray(d)) d = d[1];
+          if (!d) return;
+
+          if (d < startTs || d > endTs) return;
+
+          const acctId = t[COL_TRANS_ACCOUNT];
+          const acctName = accountMap[acctId] || "Unknown Account";
+          
+          // Check if this is a blessing gift transaction
+          if (!acctName.toLowerCase().includes("blessing gift")) return;
+          
+          const amount = parseFloat(t[COL_TRANS_AMOUNT]) || 0;
+          if (Math.abs(amount) < 0.01) return; // Skip zero
+          
+          // Get recipient from From/To field
+          const recipient = t[COL_FROM_TO] || "Unknown Recipient";
+          
+          if (!necRecipientTotals[recipient]) {
+            necRecipientTotals[recipient] = 0;
+          }
+          necRecipientTotals[recipient] += amount;
+        });
+
+        // Convert recipient totals to array
+        const necItems = Object.keys(necRecipientTotals).map(recipient => ({
+          name: recipient,
+          amount: necRecipientTotals[recipient]
+        }));
 
         // Sort alphabetically
         payrollItems.sort((a,b) => a.name.localeCompare(b.name));
@@ -251,7 +283,7 @@
         let html = '';
 
         // Helper for table
-        const renderTable = (items, title) => {
+        const renderTable = (items, title, firstColumnHeader = "Account") => {
           if (items.length === 0) return `<div class="section"><h2>${title}</h2><p>No matching records found.</p></div>`;
           
           let rows = items.map(item => `
@@ -267,7 +299,7 @@
             <div class="section">
               <h2>${title}</h2>
               <table>
-                <thead><tr><th>Account</th><th style="text-align:right">Total</th></tr></thead>
+                <thead><tr><th>${firstColumnHeader}</th><th style="text-align:right">Total</th></tr></thead>
                 <tbody>
                   ${rows}
                   <tr class="total-row">
@@ -281,7 +313,7 @@
         };
 
         html += renderTable(payrollItems, "Payroll Expenses & Liabilities");
-        html += renderTable(necItems, "1099-NEC Expenses");
+        html += renderTable(necItems, "1099-NEC Expenses", "Recipient");
 
         container.innerHTML = html;
 
