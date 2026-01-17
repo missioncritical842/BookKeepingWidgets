@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Form 1099-NEC Generator (v1.12)</title>
+  <title>Form 1099-NEC Generator (v1.13)</title>
   <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
   <style>
     body {
@@ -253,11 +253,6 @@
     }
 
     @media print {
-      @page {
-        size: 8.5in 11in;
-        margin: 0;
-      }
-
       body {
         background: transparent;
         padding: 0;
@@ -276,17 +271,11 @@
         background: transparent;
         box-shadow: none;
         margin: 0;
-        padding: 0;
-        overflow: hidden;
         page-break-after: always;
-        page-break-inside: avoid;
-        height: 11in;
-        max-height: 11in;
       }
 
-      .form-1099 {
-        page-break-inside: avoid;
-        overflow: hidden;
+      .page-1099:last-child {
+        page-break-after: avoid;
       }
 
       .forms-container {
