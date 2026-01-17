@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Form 1099-NEC Generator (v1.3)</title>
+  <title>Form 1099-NEC Generator (v1.4)</title>
   <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
   <style>
     body {
@@ -11,7 +11,7 @@
       padding: 20px;
       margin: 0;
     }
-    
+
     .controls {
       background: white;
       padding: 15px;
@@ -19,18 +19,18 @@
       border-radius: 4px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
-    
+
     .controls label {
       font-weight: bold;
       margin-right: 10px;
     }
-    
+
     .controls select, .controls input {
       font-size: 14px;
       padding: 5px;
       margin-right: 15px;
     }
-    
+
     .controls button {
       font-size: 14px;
       padding: 8px 15px;
@@ -40,156 +40,244 @@
       border-radius: 4px;
       cursor: pointer;
     }
-    
+
     .controls button:hover {
       background: #45a049;
     }
-    
+
     #error-message {
       color: red;
       font-weight: bold;
       margin: 10px 0;
     }
-    
+
     .forms-container {
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      gap: 0;
     }
-    
-    /* Form 1099-NEC Layout - Data only for pre-printed forms */
-    .form-1099 {
+
+    /* Page container - holds 3 forms per page */
+    .page-1099 {
       width: 8.5in;
       height: 11in;
-      background: transparent;
-      margin: 0 auto;
+      background: white;
+      margin: 0 auto 20px auto;
       padding: 0;
       position: relative;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
       page-break-after: always;
     }
-    
-    /* Data fields only - no borders, labels, or boxes */
+
+    /* Individual form slot - 3 per page */
+    /* Form positions: top=0, middle=3.667in, bottom=7.333in */
+    .form-1099 {
+      position: absolute;
+      left: 0;
+      width: 8.5in;
+      height: 3.667in;
+    }
+
+    .form-1099.slot-0 { top: 0; }
+    .form-1099.slot-1 { top: 3.667in; }
+    .form-1099.slot-2 { top: 7.333in; }
+
+    /* Data fields - positioned relative to form slot */
     .data-field {
       position: absolute;
-      font-size: 10pt;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 9pt;
       color: #000;
       background: transparent;
       border: none;
       padding: 0;
       margin: 0;
+      line-height: 1.2;
     }
-    
-    /* Payer Information (Top Left) */
-    .payer-name {
-      top: 0.95in;
-      left: 0.35in;
-      width: 3.4in;
-      font-weight: normal;
+
+    /* ============================================
+       1099-NEC FORM LAYOUT (3-per-page format)
+       Based on IRS Form 1099-NEC Copy B layout
+       ============================================ */
+
+    /* PAYER'S name, street address, city, state, ZIP (top-left box) */
+    .payer-info {
+      top: 0.28in;
+      left: 0.3in;
+      width: 3.9in;
+      height: 0.85in;
+      font-size: 8pt;
+      line-height: 1.3;
+      overflow: hidden;
     }
-    
-    .payer-address {
-      top: 1.15in;
-      left: 0.35in;
-      width: 3.4in;
-    }
-    
-    .payer-city-state-zip {
-      top: 1.35in;
-      left: 0.35in;
-      width: 3.4in;
-    }
-    
-    /* Recipient Information (Top Right) */
-    .recipient-name {
-      top: 0.95in;
-      right: 0.35in;
-      width: 3.4in;
-      text-align: left;
-    }
-    
-    .recipient-address {
-      top: 1.15in;
-      right: 0.35in;
-      width: 3.4in;
-      text-align: left;
-    }
-    
-    .recipient-city-state-zip {
-      top: 1.35in;
-      right: 0.35in;
-      width: 3.4in;
-      text-align: left;
-    }
-    
-    /* Account Number (optional) */
-    .account-number {
-      top: 2.05in;
-      left: 0.35in;
-      width: 1.4in;
-    }
-    
-    /* TIN Fields */
+
+    /* PAYER'S TIN (left middle) */
     .payer-tin {
-      top: 2.05in;
-      left: 2.05in;
+      top: 1.22in;
+      left: 0.3in;
       width: 1.7in;
-      font-weight: bold;
+      font-size: 10pt;
       letter-spacing: 1px;
     }
-    
+
+    /* RECIPIENT'S TIN (right of payer TIN) */
     .recipient-tin {
-      top: 2.05in;
-      right: 0.35in;
+      top: 1.22in;
+      left: 2.15in;
       width: 1.7in;
-      font-weight: bold;
+      font-size: 10pt;
       letter-spacing: 1px;
-      text-align: left;
     }
-    
-    /* Box 1 - Nonemployee Compensation */
+
+    /* RECIPIENT'S name (below TINs) */
+    .recipient-name {
+      top: 1.68in;
+      left: 0.3in;
+      width: 3.9in;
+      font-size: 9pt;
+    }
+
+    /* Street address */
+    .recipient-address {
+      top: 1.95in;
+      left: 0.3in;
+      width: 3.9in;
+      font-size: 9pt;
+    }
+
+    /* City, state, ZIP */
+    .recipient-city-state-zip {
+      top: 2.22in;
+      left: 0.3in;
+      width: 3.9in;
+      font-size: 9pt;
+    }
+
+    /* Account number (bottom left) */
+    .account-number {
+      top: 2.72in;
+      left: 0.3in;
+      width: 1.9in;
+      font-size: 8pt;
+    }
+
+    /* ============================================
+       RIGHT SIDE - AMOUNT BOXES
+       ============================================ */
+
+    /* Box 1 - Nonemployee compensation (main amount) */
     .box1-amount {
-      top: 2.55in;
-      right: 0.35in;
-      width: 1.5in;
+      top: 0.52in;
+      left: 5.55in;
+      width: 1.35in;
       text-align: right;
-      font-weight: bold;
-      font-size: 11pt;
-    }
-    
-    /* Tax Year */
-    .tax-year-value {
-      top: 3.05in;
-      left: 1.2in;
-      width: 0.7in;
+      font-size: 10pt;
       font-weight: bold;
     }
-    
+
+    /* Box 2 - Payer made direct sales checkbox area */
+    .box2-direct-sales {
+      top: 0.95in;
+      left: 5.55in;
+      width: 1.35in;
+      font-size: 9pt;
+    }
+
+    /* Box 4 - Federal income tax withheld */
+    .box4-federal-tax {
+      top: 1.38in;
+      left: 5.55in;
+      width: 1.35in;
+      text-align: right;
+      font-size: 10pt;
+    }
+
+    /* Box 5 - State tax withheld */
+    .box5-state-tax {
+      top: 2.55in;
+      left: 4.35in;
+      width: 1.0in;
+      text-align: right;
+      font-size: 9pt;
+    }
+
+    /* Box 6 - State/Payer's state no. */
+    .box6-state-number {
+      top: 2.55in;
+      left: 5.45in;
+      width: 1.45in;
+      font-size: 9pt;
+    }
+
+    /* Box 7 - State income */
+    .box7-state-income {
+      top: 2.55in;
+      left: 7.0in;
+      width: 1.1in;
+      text-align: right;
+      font-size: 9pt;
+    }
+
+    /* Second row for state info (if needed) */
+    .box5-state-tax-2 {
+      top: 2.85in;
+      left: 4.35in;
+      width: 1.0in;
+      text-align: right;
+      font-size: 9pt;
+    }
+
+    .box6-state-number-2 {
+      top: 2.85in;
+      left: 5.45in;
+      width: 1.45in;
+      font-size: 9pt;
+    }
+
+    .box7-state-income-2 {
+      top: 2.85in;
+      left: 7.0in;
+      width: 1.1in;
+      text-align: right;
+      font-size: 9pt;
+    }
+
+    /* OMB/Form identifier area (top right corner) - tax year */
+    .tax-year {
+      top: 0.12in;
+      left: 7.1in;
+      width: 0.5in;
+      font-size: 9pt;
+      font-weight: bold;
+      text-align: center;
+    }
+
     @media print {
       body {
         background: transparent;
         padding: 0;
         margin: 0;
       }
-      
+
       .controls {
         display: none;
       }
-      
+
       #error-message {
         display: none;
       }
-      
-      .form-1099 {
+
+      .page-1099 {
         background: transparent;
         box-shadow: none;
         margin: 0;
         page-break-after: always;
       }
-      
+
       .forms-container {
         gap: 0;
       }
-      
+
       .data-field {
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
@@ -201,7 +289,7 @@
   <div class="controls">
     <label for="year-select">Tax Year:</label>
     <select id="year-select"></select>
-    
+
     <label for="copy-select">Copy:</label>
     <select id="copy-select">
       <option value="A">Copy A - For IRS</option>
@@ -209,31 +297,31 @@
       <option value="C">Copy C - For Payer</option>
       <option value="D">Copy D - For State</option>
     </select>
-    
+
     <button onclick="loadData()">Generate Forms</button>
   </div>
-  
+
   <div id="error-message"></div>
-  
+
   <div id="forms-container" class="forms-container"></div>
-  
+
   <script>
     grist.ready({ columns: [], requiredAccess: 'read table' });
-    
+
     const TABLE_TRANSACTIONS = "Transaction_Categorization";
     const TABLE_ACCOUNTS = "Accounts";
     const TABLE_PEOPLE = "People_Companies";
     const TABLE_ORG_SETTINGS = "Organization_Settings";
-    
+
     // Column Constants
     const COL_TRANS_AMOUNT = "Amount";
     const COL_TRANS_DATE = "Change_Date_Posted";
     const COL_TRANS_DATE_BACKUP = "Date_Cleared";
     const COL_TRANS_ACCOUNT = "Account_Long_Name";
     const COL_TRANS_FROM_TO = "From_To";
-    
+
     const COL_ACC_NAME = "ACCOUNT_NAME";
-    
+
     const COL_PEOPLE_NAME = "Display_Name";
     const COL_PEOPLE_FIRST_NAME = "First_Name";
     const COL_PEOPLE_LAST_NAME = "Last_Name";
@@ -242,40 +330,33 @@
     const COL_PEOPLE_CITY = "City";
     const COL_PEOPLE_STATE = "State";
     const COL_PEOPLE_ZIP = "Zip";
-    const COL_PEOPLE_TIN = "TIN"; // Taxpayer Identification Number (SSN/EIN)
-    const COL_PEOPLE_TIN_TYPE = "TIN_Type"; // "SSN" or "EIN" - optional, auto-detects if missing
-    
+    const COL_PEOPLE_TIN = "TIN";
+    const COL_PEOPLE_TIN_TYPE = "TIN_Type";
+
     const COL_ORG_NAME = "Org_Name";
     const COL_ORG_ADDRESS = "Street_Address";
     const COL_ORG_CITY_STATE_ZIP = "City_State_Zip";
-    const COL_ORG_TIN = "EIN"; // Employer Identification Number - NEEDS TO BE ADDED
-    
+    const COL_ORG_TIN = "EIN";
+    const COL_ORG_PHONE = "Phone";
+
     const TARGET_ACCOUNT_NAME = "blessing gift";
 
     // Helper: Format TIN based on type (SSN vs EIN)
-    // SSN format: XXX-XX-XXXX (9 digits as 3-2-4)
-    // EIN format: XX-XXXXXXX (9 digits as 2-7)
     function formatTIN(tin, tinType, firstName, lastName) {
       if (!tin) return "";
-
-      // Remove any existing formatting (dashes, spaces)
       const digits = tin.replace(/\D/g, '');
-      if (digits.length !== 9) return tin; // Return as-is if not 9 digits
+      if (digits.length !== 9) return tin;
 
-      // Determine type: explicit TIN_Type > auto-detect based on name
-      let isSSN = true; // Default to SSN
+      let isSSN = true;
       if (tinType) {
         isSSN = tinType.toUpperCase() === "SSN";
       } else {
-        // Auto-detect: if First_Name and Last_Name are both empty, likely a company (EIN)
         isSSN = !!(firstName || lastName);
       }
 
       if (isSSN) {
-        // SSN: XXX-XX-XXXX
         return digits.replace(/(\d{3})(\d{2})(\d{4})/, "$1-$2-$3");
       } else {
-        // EIN: XX-XXXXXXX
         return digits.replace(/(\d{2})(\d{7})/, "$1-$2");
       }
     }
@@ -294,29 +375,28 @@
       }
       return records;
     }
-    
+
     // Initialize Year Select
     function initYearSelect() {
       const select = document.getElementById('year-select');
       const currentYear = new Date().getFullYear();
-      
-      // Add last 3 years
+
       for (let i = 0; i < 3; i++) {
         const year = currentYear - i;
         const opt = document.createElement('option');
         opt.value = year;
         opt.text = year;
-        if (i === 1) opt.selected = true; // Default to previous year
+        if (i === 1) opt.selected = true;
         select.appendChild(opt);
       }
     }
-    
+
     async function loadData() {
       const errMsg = document.getElementById('error-message');
       const container = document.getElementById('forms-container');
       errMsg.innerText = '';
       container.innerHTML = 'Loading...';
-      
+
       try {
         const [transData, accData, peopleData, orgData] = await Promise.all([
           grist.docApi.fetchTable(TABLE_TRANSACTIONS),
@@ -324,183 +404,193 @@
           grist.docApi.fetchTable(TABLE_PEOPLE),
           grist.docApi.fetchTable(TABLE_ORG_SETTINGS)
         ]);
-        
+
         const transactions = convertToRecords(transData);
         const accounts = convertToRecords(accData);
         const people = convertToRecords(peopleData);
         const orgRecords = convertToRecords(orgData);
-        
+
         // Get Organization Settings
         const orgSettings = orgRecords.length > 0 ? orgRecords[0] : {};
         const orgInfo = {
           name: orgSettings[COL_ORG_NAME] || "Organization Name",
           address: orgSettings[COL_ORG_ADDRESS] || "",
           cityStateZip: orgSettings[COL_ORG_CITY_STATE_ZIP] || "",
-          ein: orgSettings[COL_ORG_TIN] || "" // Will show error if missing
+          ein: orgSettings[COL_ORG_TIN] || "",
+          phone: orgSettings[COL_ORG_PHONE] || ""
         };
-        
+
         if (!orgInfo.ein) {
-          errMsg.innerText = "ERROR: EIN field missing in Organization_Settings table. Please add 'EIN' column.";
+          errMsg.innerText = "ERROR: EIN field missing in Organization_Settings table.";
           container.innerHTML = "";
           return;
         }
-        
-        // Get Tax Year
+
         const taxYear = parseInt(document.getElementById('year-select').value);
         const copyType = document.getElementById('copy-select').value;
-        
-        // Date Range for Tax Year
+
         const startTs = new Date(Date.UTC(taxYear, 0, 1)).getTime() / 1000;
         const endTs = new Date(Date.UTC(taxYear, 11, 31, 23, 59, 59)).getTime() / 1000;
-        
-        // Map Account ID to Name (same approach as PayrollFilingsHelper)
+
         const accountMap = {};
         accounts.forEach(a => accountMap[a.id] = a[COL_ACC_NAME]);
-        
-        // Map People by ID
+
         const peopleMap = {};
-        people.forEach(p => {
-          peopleMap[p.id] = p;
-        });
-        
-        // Aggregate transactions by recipient (matching PayrollFilingsHelper logic)
+        people.forEach(p => { peopleMap[p.id] = p; });
+
         const recipientTotals = {};
         let transactionsProcessed = 0;
         let blessingGiftTransactions = 0;
-        
+
         transactions.forEach(t => {
-          // Date Check
           let d = t[COL_TRANS_DATE];
           if (!d && d !== 0) d = t[COL_TRANS_DATE_BACKUP];
           if (Array.isArray(d)) d = d[1];
           if (!d) return;
-          
+
           if (d < startTs || d > endTs) return;
-          
+
           transactionsProcessed++;
-          
-          // Account Check - match PayrollFilingsHelper approach
+
           const acctId = t[COL_TRANS_ACCOUNT];
           const acctName = accountMap[acctId] || "Unknown Account";
-          
-          // Check if this is a blessing gift transaction
+
           if (!acctName.toLowerCase().includes(TARGET_ACCOUNT_NAME)) return;
-          
+
           blessingGiftTransactions++;
-          
-          // Recipient Check
+
           const recipientId = t[COL_TRANS_FROM_TO];
           if (!recipientId) return;
-          
+
           const amount = parseFloat(t[COL_TRANS_AMOUNT]) || 0;
           if (Math.abs(amount) < 0.01) return;
-          
+
           if (!recipientTotals[recipientId]) {
             recipientTotals[recipientId] = 0;
           }
           recipientTotals[recipientId] += amount;
         });
-        
-        console.log(`Form1099NEC Debug: Processed ${transactionsProcessed} transactions in ${taxYear}, found ${blessingGiftTransactions} blessing gift transactions`);
-        console.log(`Form1099NEC Debug: Recipient totals:`, recipientTotals);
-        
-        // Get all recipients (for debugging, we'll filter by $600 later)
+
         const allRecipients = Object.keys(recipientTotals)
           .map(recipientId => {
             const person = peopleMap[recipientId];
             if (!person) return null;
-            
-            return {
-              person: person,
-              amount: recipientTotals[recipientId]
-            };
+            return { person: person, amount: recipientTotals[recipientId] };
           })
           .filter(r => r !== null)
           .sort((a, b) => a.person[COL_PEOPLE_NAME].localeCompare(b.person[COL_PEOPLE_NAME]));
-        
-        console.log(`Form1099NEC Debug: Found ${allRecipients.length} recipients:`, allRecipients.map(r => ({
-          name: r.person[COL_PEOPLE_NAME],
-          amount: r.amount
-        })));
-        
-        // Filter recipients with $600 or more (IRS threshold)
+
         const qualifiedRecipients = allRecipients.filter(r => Math.abs(r.amount) >= 600);
-        
+
         if (allRecipients.length === 0) {
-          errMsg.innerText = `No recipients found for ${taxYear}. Processed ${transactionsProcessed} transactions, found ${blessingGiftTransactions} blessing gift transactions.`;
+          errMsg.innerText = `No recipients found for ${taxYear}.`;
           container.innerHTML = "";
           return;
         }
-        
+
         if (qualifiedRecipients.length === 0) {
-          const amountsList = allRecipients.map(r => `${r.person[COL_PEOPLE_NAME]}: $${r.amount.toFixed(2)}`).join(", ");
+          const amountsList = allRecipients.map(r => `${r.person[COL_PEOPLE_NAME]}: $${Math.abs(r.amount).toFixed(2)}`).join(", ");
           errMsg.innerText = `Found ${allRecipients.length} recipient(s) but none meet the $600 threshold: ${amountsList}`;
           container.innerHTML = "";
           return;
         }
-        
-        // Generate Forms
+
+        // Format payer info block
+        const payerInfoLines = [
+          orgInfo.name,
+          orgInfo.address,
+          orgInfo.cityStateZip,
+          orgInfo.phone ? `Tel: ${orgInfo.phone}` : ''
+        ].filter(x => x).join('\n');
+
+        const formattedEIN = orgInfo.ein.replace(/\D/g, '').replace(/(\d{2})(\d{7})/, "$1-$2");
+
+        // Generate pages with 3 forms each
         let html = '';
-        qualifiedRecipients.forEach((recipient, index) => {
-          const person = recipient.person;
-          const amount = recipient.amount;
-          
-          // Format TIN (SSN: XXX-XX-XXXX or EIN: XX-XXXXXXX)
-          const tin = person[COL_PEOPLE_TIN] || "";
-          const tinType = person[COL_PEOPLE_TIN_TYPE] || "";
-          const firstName = person[COL_PEOPLE_FIRST_NAME] || "";
-          const lastName = person[COL_PEOPLE_LAST_NAME] || "";
-          const formattedTIN = formatTIN(tin, tinType, firstName, lastName);
-          const formattedEIN = orgInfo.ein.replace(/\D/g, '').replace(/(\d{2})(\d{7})/, "$1-$2");
-          
-          // Build address
-          const recipientAddress = person[COL_PEOPLE_STREET1] || "";
-          const recipientCityStateZip = [
-            person[COL_PEOPLE_CITY] || "",
-            person[COL_PEOPLE_STATE] || "",
-            person[COL_PEOPLE_ZIP] || ""
-          ].filter(x => x).join(", ");
-          
-          html += `
-            <div class="form-1099">
-              <!-- Payer Information (Top Left) -->
-              <div class="data-field payer-name">${orgInfo.name}</div>
-              <div class="data-field payer-address">${orgInfo.address}</div>
-              <div class="data-field payer-city-state-zip">${orgInfo.cityStateZip}</div>
-              
-              <!-- Recipient Information (Top Right) -->
-              <div class="data-field recipient-name">${person[COL_PEOPLE_NAME] || ""}</div>
-              <div class="data-field recipient-address">${recipientAddress}</div>
-              <div class="data-field recipient-city-state-zip">${recipientCityStateZip}</div>
-              
-              <!-- Account Number (optional - left blank) -->
-              <div class="data-field account-number"></div>
-              
-              <!-- TIN Fields -->
-              <div class="data-field payer-tin">${formattedEIN}</div>
-              <div class="data-field recipient-tin">${formattedTIN}</div>
-              
-              <!-- Box 1 - Nonemployee Compensation -->
-              <div class="data-field box1-amount">$${Math.abs(amount).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
-              
-              <!-- Tax Year -->
-              <div class="data-field tax-year-value">${taxYear}</div>
-            </div>
-          `;
-        });
-        
+        const formsPerPage = 3;
+        const totalPages = Math.ceil(qualifiedRecipients.length / formsPerPage);
+
+        for (let page = 0; page < totalPages; page++) {
+          html += `<div class="page-1099">`;
+
+          for (let slot = 0; slot < formsPerPage; slot++) {
+            const idx = page * formsPerPage + slot;
+            if (idx >= qualifiedRecipients.length) break;
+
+            const recipient = qualifiedRecipients[idx];
+            const person = recipient.person;
+            const amount = Math.abs(recipient.amount);
+
+            const tin = person[COL_PEOPLE_TIN] || "";
+            const tinType = person[COL_PEOPLE_TIN_TYPE] || "";
+            const firstName = person[COL_PEOPLE_FIRST_NAME] || "";
+            const lastName = person[COL_PEOPLE_LAST_NAME] || "";
+            const formattedTIN = formatTIN(tin, tinType, firstName, lastName);
+
+            const recipientAddress = [
+              person[COL_PEOPLE_STREET1] || "",
+              person[COL_PEOPLE_STREET2] || ""
+            ].filter(x => x).join(', ');
+
+            const recipientCityStateZip = [
+              person[COL_PEOPLE_CITY] || "",
+              person[COL_PEOPLE_STATE] || ""
+            ].filter(x => x).join(', ') + (person[COL_PEOPLE_ZIP] ? ` ${person[COL_PEOPLE_ZIP]}` : '');
+
+            html += `
+              <div class="form-1099 slot-${slot}">
+                <!-- Tax Year (top right) -->
+                <div class="data-field tax-year">${taxYear}</div>
+
+                <!-- PAYER Information (top left block) -->
+                <pre class="data-field payer-info">${payerInfoLines}</pre>
+
+                <!-- PAYER'S TIN -->
+                <div class="data-field payer-tin">${formattedEIN}</div>
+
+                <!-- RECIPIENT'S TIN -->
+                <div class="data-field recipient-tin">${formattedTIN}</div>
+
+                <!-- RECIPIENT'S name -->
+                <div class="data-field recipient-name">${person[COL_PEOPLE_NAME] || ""}</div>
+
+                <!-- Street address -->
+                <div class="data-field recipient-address">${recipientAddress}</div>
+
+                <!-- City, state, ZIP -->
+                <div class="data-field recipient-city-state-zip">${recipientCityStateZip}</div>
+
+                <!-- Account number (optional) -->
+                <div class="data-field account-number"></div>
+
+                <!-- Box 1 - Nonemployee compensation -->
+                <div class="data-field box1-amount">${amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+
+                <!-- Box 4 - Federal income tax withheld (blank) -->
+                <div class="data-field box4-federal-tax"></div>
+
+                <!-- State info boxes (blank) -->
+                <div class="data-field box5-state-tax"></div>
+                <div class="data-field box6-state-number"></div>
+                <div class="data-field box7-state-income"></div>
+              </div>
+            `;
+          }
+
+          html += `</div>`;
+        }
+
         container.innerHTML = html;
-        
+
       } catch (e) {
         console.error(e);
         errMsg.innerText = "Error: " + e.message;
         container.innerHTML = "";
       }
     }
-    
+
     initYearSelect();
     loadData();
   </script>
 </body>
 </html>
-
