@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Form 1099-NEC Generator (v1.2)</title>
+  <title>Form 1099-NEC Generator (v1.3)</title>
   <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
   <style>
     body {
@@ -235,12 +235,15 @@
     const COL_ACC_NAME = "ACCOUNT_NAME";
     
     const COL_PEOPLE_NAME = "Display_Name";
+    const COL_PEOPLE_FIRST_NAME = "First_Name";
+    const COL_PEOPLE_LAST_NAME = "Last_Name";
     const COL_PEOPLE_STREET1 = "Street1";
     const COL_PEOPLE_STREET2 = "Street2";
     const COL_PEOPLE_CITY = "City";
     const COL_PEOPLE_STATE = "State";
     const COL_PEOPLE_ZIP = "Zip";
-    const COL_PEOPLE_TIN = "TIN"; // Taxpayer Identification Number (SSN/EIN) - NEEDS TO BE ADDED
+    const COL_PEOPLE_TIN = "TIN"; // Taxpayer Identification Number (SSN/EIN)
+    const COL_PEOPLE_TIN_TYPE = "TIN_Type"; // "SSN" or "EIN" - optional, auto-detects if missing
     
     const COL_ORG_NAME = "Org_Name";
     const COL_ORG_ADDRESS = "Street_Address";
@@ -248,7 +251,35 @@
     const COL_ORG_TIN = "EIN"; // Employer Identification Number - NEEDS TO BE ADDED
     
     const TARGET_ACCOUNT_NAME = "blessing gift";
-    
+
+    // Helper: Format TIN based on type (SSN vs EIN)
+    // SSN format: XXX-XX-XXXX (9 digits as 3-2-4)
+    // EIN format: XX-XXXXXXX (9 digits as 2-7)
+    function formatTIN(tin, tinType, firstName, lastName) {
+      if (!tin) return "";
+
+      // Remove any existing formatting (dashes, spaces)
+      const digits = tin.replace(/\D/g, '');
+      if (digits.length !== 9) return tin; // Return as-is if not 9 digits
+
+      // Determine type: explicit TIN_Type > auto-detect based on name
+      let isSSN = true; // Default to SSN
+      if (tinType) {
+        isSSN = tinType.toUpperCase() === "SSN";
+      } else {
+        // Auto-detect: if First_Name and Last_Name are both empty, likely a company (EIN)
+        isSSN = !!(firstName || lastName);
+      }
+
+      if (isSSN) {
+        // SSN: XXX-XX-XXXX
+        return digits.replace(/(\d{3})(\d{2})(\d{4})/, "$1-$2-$3");
+      } else {
+        // EIN: XX-XXXXXXX
+        return digits.replace(/(\d{2})(\d{7})/, "$1-$2");
+      }
+    }
+
     // Helper: Convert Grist Columns to Records
     function convertToRecords(data) {
       const columns = Object.keys(data);
@@ -414,10 +445,13 @@
           const person = recipient.person;
           const amount = recipient.amount;
           
-          // Format TIN (XXX-XX-XXXX)
+          // Format TIN (SSN: XXX-XX-XXXX or EIN: XX-XXXXXXX)
           const tin = person[COL_PEOPLE_TIN] || "";
-          const formattedTIN = tin ? tin.replace(/(\d{3})(\d{2})(\d{4})/, "$1-$2-$3") : "";
-          const formattedEIN = orgInfo.ein.replace(/(\d{2})(\d{7})/, "$1-$2");
+          const tinType = person[COL_PEOPLE_TIN_TYPE] || "";
+          const firstName = person[COL_PEOPLE_FIRST_NAME] || "";
+          const lastName = person[COL_PEOPLE_LAST_NAME] || "";
+          const formattedTIN = formatTIN(tin, tinType, firstName, lastName);
+          const formattedEIN = orgInfo.ein.replace(/\D/g, '').replace(/(\d{2})(\d{7})/, "$1-$2");
           
           // Build address
           const recipientAddress = person[COL_PEOPLE_STREET1] || "";
