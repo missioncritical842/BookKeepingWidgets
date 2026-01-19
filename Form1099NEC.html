@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Form 1099-NEC Generator (v1.15)</title>
+  <title>Form 1099-NEC Generator (v1.17)</title>
   <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
   <style>
     body {
@@ -346,22 +346,24 @@
     const TARGET_ACCOUNT_NAME = "blessing gift";
 
     // Helper: Format TIN based on type (SSN vs EIN)
-    function formatTIN(tin, tinType, firstName, lastName) {
+    // Default to SSN formatting since 1099-NECs are typically for individuals
+    function formatTIN(tin, tinType) {
       if (!tin) return "";
       const digits = tin.replace(/\D/g, '');
       if (digits.length !== 9) return tin;
 
-      let isSSN = true;
+      // Only format as EIN if explicitly marked as such
+      let isEIN = false;
       if (tinType) {
-        isSSN = tinType.toUpperCase() === "SSN";
-      } else {
-        isSSN = !!(firstName || lastName);
+        const type = tinType.toUpperCase();
+        isEIN = type === "EIN" || type.includes("EMPLOYER");
       }
 
-      if (isSSN) {
-        return digits.replace(/(\d{3})(\d{2})(\d{4})/, "$1-$2-$3");
-      } else {
+      if (isEIN) {
         return digits.replace(/(\d{2})(\d{7})/, "$1-$2");
+      } else {
+        // Default to SSN format (XXX-XX-XXXX)
+        return digits.replace(/(\d{3})(\d{2})(\d{4})/, "$1-$2-$3");
       }
     }
 
@@ -527,9 +529,7 @@
 
             const tin = person[COL_PEOPLE_TIN] || "";
             const tinType = person[COL_PEOPLE_TIN_TYPE] || "";
-            const firstName = person[COL_PEOPLE_FIRST_NAME] || "";
-            const lastName = person[COL_PEOPLE_LAST_NAME] || "";
-            const formattedTIN = formatTIN(tin, tinType, firstName, lastName);
+            const formattedTIN = formatTIN(tin, tinType);
 
             const recipientAddress = [
               person[COL_PEOPLE_STREET1] || "",
