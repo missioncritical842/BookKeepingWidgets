@@ -3,7 +3,7 @@
 ## Repository Info
 - **GitHub**: https://github.com/missioncritical842/BookKeepingWidgets
 - **GitHub Pages**: https://missioncritical842.github.io/BookKeepingWidgets/
-- **Current Version**: v1.17
+- **Current Version**: v1.18
 
 ## Grist Documents Using These Widgets
 
@@ -16,16 +16,16 @@
 ## Widgets
 | Widget | GitHub Pages URL |
 |--------|------------------|
-| Form1099NEC.html | `https://missioncritical842.github.io/BookKeepingWidgets/Form1099NEC.html?v1.17` |
-| PayrollFilingsHelper.html | `https://missioncritical842.github.io/BookKeepingWidgets/PayrollFilingsHelper.html?v1.17` |
-| donationenvelopes.html | `https://missioncritical842.github.io/BookKeepingWidgets/donationenvelopes.html?v1.17` |
-| donationreceipts.html | `https://missioncritical842.github.io/BookKeepingWidgets/donationreceipts.html?v1.17` |
-| envelopes.html | `https://missioncritical842.github.io/BookKeepingWidgets/envelopes.html?v1.17` |
-| lastmonthpandl.html | `https://missioncritical842.github.io/BookKeepingWidgets/lastmonthpandl.html?v1.17` |
-| lastyearcashflow.html | `https://missioncritical842.github.io/BookKeepingWidgets/lastyearcashflow.html?v1.17` |
-| lastyearpandl.html | `https://missioncritical842.github.io/BookKeepingWidgets/lastyearpandl.html?v1.17` |
-| pandlalltime.html | `https://missioncritical842.github.io/BookKeepingWidgets/pandlalltime.html?v1.17` |
-| quarterlypandl.html | `https://missioncritical842.github.io/BookKeepingWidgets/quarterlypandl.html?v1.17` |
+| Form1099NEC.html | `https://missioncritical842.github.io/BookKeepingWidgets/Form1099NEC.html?v1.18` |
+| PayrollFilingsHelper.html | `https://missioncritical842.github.io/BookKeepingWidgets/PayrollFilingsHelper.html?v1.18` |
+| donationenvelopes.html | `https://missioncritical842.github.io/BookKeepingWidgets/donationenvelopes.html?v1.18` |
+| donationreceipts.html | `https://missioncritical842.github.io/BookKeepingWidgets/donationreceipts.html?v1.18` |
+| envelopes.html | `https://missioncritical842.github.io/BookKeepingWidgets/envelopes.html?v1.18` |
+| lastmonthpandl.html | `https://missioncritical842.github.io/BookKeepingWidgets/lastmonthpandl.html?v1.18` |
+| lastyearcashflow.html | `https://missioncritical842.github.io/BookKeepingWidgets/lastyearcashflow.html?v1.18` |
+| lastyearpandl.html | `https://missioncritical842.github.io/BookKeepingWidgets/lastyearpandl.html?v1.18` |
+| pandlalltime.html | `https://missioncritical842.github.io/BookKeepingWidgets/pandlalltime.html?v1.18` |
+| quarterlypandl.html | `https://missioncritical842.github.io/BookKeepingWidgets/quarterlypandl.html?v1.18` |
 
 ## Commit Requirements
 - **Always increment version number** in commit message (e.g., "Description of changes (v1.17)")
