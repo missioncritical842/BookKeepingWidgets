@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Form 1096 Generator (v1.19)</title>
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f0f0;
+      padding: 20px;
+      margin: 0;
+    }
+
+    .controls {
+      background: white;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .controls label {
+      font-weight: bold;
+      margin-right: 10px;
+    }
+
+    .controls select, .controls input {
+      font-size: 14px;
+      padding: 5px;
+      margin-right: 15px;
+    }
+
+    .controls button {
+      font-size: 14px;
+      padding: 8px 15px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .controls button:hover {
+      background: #45a049;
+    }
+
+    #error-message {
+      color: red;
+      font-weight: bold;
+      margin: 10px 0;
+    }
+
+    #info-message {
+      color: #333;
+      background: #e7f3ff;
+      border: 1px solid #b3d7ff;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+    }
+
+    .forms-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    /* Page container - Form 1096 is a single page */
+    .page-1096 {
+      width: 8.5in;
+      height: 11in;
+      background: white;
+      margin: 0 auto 20px auto;
+      padding: 0;
+      position: relative;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+
+    /* Data fields - positioned absolutely within the page */
+    .data-field {
+      position: absolute;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 10pt;
+      color: #000;
+      background: transparent;
+      border: none;
+      padding: 0;
+      margin: 0;
+      line-height: 1.2;
+    }
+
+    /* ============================================
+       FORM 1096 LAYOUT
+       Based on IRS Form 1096 layout
+       ============================================ */
+
+    /* FILER'S name (top left) */
+    .filer-name {
+      top: 1.05in;
+      left: 0.35in;
+      width: 3.5in;
+      font-size: 10pt;
+      font-weight: bold;
+    }
+
+    /* Street address */
+    .filer-street {
+      top: 1.35in;
+      left: 0.35in;
+      width: 3.5in;
+      font-size: 9pt;
+    }
+
+    /* City, state, ZIP */
+    .filer-city-state-zip {
+      top: 1.65in;
+      left: 0.35in;
+      width: 3.5in;
+      font-size: 9pt;
+    }
+
+    /* Contact person name */
+    .contact-name {
+      top: 2.05in;
+      left: 0.85in;
+      width: 2.0in;
+      font-size: 9pt;
+    }
+
+    /* Telephone number */
+    .contact-phone {
+      top: 2.05in;
+      left: 3.55in;
+      width: 1.5in;
+      font-size: 9pt;
+    }
+
+    /* Email address */
+    .contact-email {
+      top: 2.35in;
+      left: 0.65in;
+      width: 2.5in;
+      font-size: 8pt;
+    }
+
+    /* Fax number */
+    .contact-fax {
+      top: 2.35in;
+      left: 3.85in;
+      width: 1.2in;
+      font-size: 9pt;
+    }
+
+    /* Box 1 - Employer identification number (EIN) */
+    .box1-ein {
+      top: 2.75in;
+      left: 1.1in;
+      width: 1.4in;
+      font-size: 11pt;
+      letter-spacing: 1px;
+    }
+
+    /* Box 2 - Social security number (SSN) - usually blank for businesses */
+    .box2-ssn {
+      top: 2.75in;
+      left: 3.45in;
+      width: 1.4in;
+      font-size: 11pt;
+      letter-spacing: 1px;
+    }
+
+    /* Box 3 - Total number of forms */
+    .box3-num-forms {
+      top: 3.16in;
+      left: 0.65in;
+      width: 0.8in;
+      font-size: 12pt;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    /* Box 4 - Federal income tax withheld */
+    .box4-fed-tax {
+      top: 3.16in;
+      left: 2.15in;
+      width: 1.1in;
+      font-size: 11pt;
+      text-align: right;
+    }
+
+    /* Box 5 - Total amount reported */
+    .box5-total-amount {
+      top: 3.16in;
+      left: 4.0in;
+      width: 1.3in;
+      font-size: 11pt;
+      text-align: right;
+      font-weight: bold;
+    }
+
+    /* Box 6 - Checkboxes for form type */
+    /* Form 1099-NEC checkbox position */
+    .box6-1099nec-check {
+      top: 4.57in;
+      left: 3.57in;
+      width: 0.15in;
+      font-size: 14pt;
+      font-weight: bold;
+    }
+
+    /* Tax year display */
+    .tax-year {
+      top: 0.55in;
+      left: 6.95in;
+      width: 0.5in;
+      font-size: 12pt;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    /* Return type indicator */
+    .return-type {
+      top: 5.15in;
+      left: 0.4in;
+      width: 7.5in;
+      font-size: 9pt;
+    }
+
+    /* Summary section at bottom of widget (not on form) */
+    .summary-panel {
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      padding: 15px;
+      margin: 20px auto;
+      max-width: 8.5in;
+      border-radius: 4px;
+    }
+
+    .summary-panel h3 {
+      margin-top: 0;
+      color: #333;
+    }
+
+    .summary-panel table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .summary-panel th, .summary-panel td {
+      padding: 8px;
+      text-align: left;
+      border-bottom: 1px solid #dee2e6;
+    }
+
+    .summary-panel th {
+      background: #e9ecef;
+    }
+
+    .summary-panel .total-row {
+      font-weight: bold;
+      background: #e7f3ff;
+    }
+
+    @media print {
+      body {
+        background: transparent;
+        padding: 0;
+        margin: 0;
+      }
+
+      .controls {
+        display: none;
+      }
+
+      #error-message {
+        display: none;
+      }
+
+      #info-message {
+        display: none;
+      }
+
+      .summary-panel {
+        display: none;
+      }
+
+      .page-1096 {
+        background: transparent;
+        box-shadow: none;
+        margin: 0;
+      }
+
+      .data-field {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="controls">
+    <label for="year-select">Tax Year:</label>
+    <select id="year-select"></select>
+
+    <button onclick="loadData()">Generate Form 1096</button>
+  </div>
+
+  <div id="error-message"></div>
+  <div id="info-message"></div>
+
+  <div id="forms-container" class="forms-container"></div>
+
+  <script>
+    grist.ready({ columns: [], requiredAccess: 'read table' });
+
+    const TABLE_TRANSACTIONS = "Transaction_Categorization";
+    const TABLE_ACCOUNTS = "Accounts";
+    const TABLE_PEOPLE = "People_Companies";
+    const TABLE_ORG_SETTINGS = "Organization_Settings";
+
+    // Column Constants - must match Grist schema
+    const COL_TRANS_AMOUNT = "Amount";
+    const COL_TRANS_DATE = "Change_Date_Posted";
+    const COL_TRANS_DATE_BACKUP = "Date_Cleared";
+    const COL_TRANS_ACCOUNT = "Account_Long_Name";
+    const COL_TRANS_FROM_TO = "From_To";
+
+    const COL_ACC_NAME = "ACCOUNT_NAME";
+
+    const COL_PEOPLE_NAME = "Display_Name";
+    const COL_PEOPLE_TIN = "TIN";
+
+    const COL_ORG_NAME = "Org_Name";
+    const COL_ORG_ADDRESS = "Street_Address";
+    const COL_ORG_CITY_STATE_ZIP = "City_State_Zip";
+    const COL_ORG_TIN = "EIN";
+    const COL_ORG_PHONE = "Phone";
+    const COL_ORG_EMAIL = "Email";
+    const COL_ORG_CONTACT = "Contact_Person";
+    const COL_ORG_FAX = "Fax";
+
+    const TARGET_ACCOUNT_NAME = "blessing gift";
+
+    // Helper: Format EIN (XX-XXXXXXX)
+    function formatEIN(ein) {
+      if (!ein) return "";
+      const digits = ein.replace(/\D/g, '');
+      if (digits.length !== 9) return ein;
+      return digits.replace(/(\d{2})(\d{7})/, "$1-$2");
+    }
+
+    // Helper: Format currency
+    function formatCurrency(amount) {
+      return amount.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    }
+
+    // Helper: Convert Grist Columns to Records
+    function convertToRecords(data) {
+      const columns = Object.keys(data);
+      if (columns.length === 0) return [];
+      if (Array.isArray(data)) return data;
+      const numRows = data.id ? data.id.length : 0;
+      const records = [];
+      for (let i = 0; i < numRows; i++) {
+        const record = { id: data.id[i] };
+        columns.forEach(col => { if (col !== 'id') record[col] = data[col][i]; });
+        records.push(record);
+      }
+      return records;
+    }
+
+    // Initialize Year Select
+    function initYearSelect() {
+      const select = document.getElementById('year-select');
+      const currentYear = new Date().getFullYear();
+
+      for (let i = 0; i < 3; i++) {
+        const year = currentYear - i;
+        const opt = document.createElement('option');
+        opt.value = year;
+        opt.text = year;
+        if (i === 1) opt.selected = true;
+        select.appendChild(opt);
+      }
+    }
+
+    async function loadData() {
+      const errMsg = document.getElementById('error-message');
+      const infoMsg = document.getElementById('info-message');
+      const container = document.getElementById('forms-container');
+      errMsg.innerText = '';
+      infoMsg.innerHTML = '';
+      container.innerHTML = 'Loading...';
+
+      try {
+        const [transData, accData, peopleData, orgData] = await Promise.all([
+          grist.docApi.fetchTable(TABLE_TRANSACTIONS),
+          grist.docApi.fetchTable(TABLE_ACCOUNTS),
+          grist.docApi.fetchTable(TABLE_PEOPLE),
+          grist.docApi.fetchTable(TABLE_ORG_SETTINGS)
+        ]);
+
+        const transactions = convertToRecords(transData);
+        const accounts = convertToRecords(accData);
+        const people = convertToRecords(peopleData);
+        const orgRecords = convertToRecords(orgData);
+
+        // Get Organization Settings
+        const orgSettings = orgRecords.length > 0 ? orgRecords[0] : {};
+        const orgInfo = {
+          name: orgSettings[COL_ORG_NAME] || "Organization Name",
+          address: orgSettings[COL_ORG_ADDRESS] || "",
+          cityStateZip: orgSettings[COL_ORG_CITY_STATE_ZIP] || "",
+          ein: orgSettings[COL_ORG_TIN] || "",
+          phone: orgSettings[COL_ORG_PHONE] || "",
+          email: orgSettings[COL_ORG_EMAIL] || "",
+          contactPerson: orgSettings[COL_ORG_CONTACT] || "",
+          fax: orgSettings[COL_ORG_FAX] || ""
+        };
+
+        if (!orgInfo.ein) {
+          errMsg.innerText = "ERROR: EIN field missing in Organization_Settings table.";
+          container.innerHTML = "";
+          return;
+        }
+
+        // Warn about missing contact person
+        if (!orgInfo.contactPerson) {
+          infoMsg.innerHTML = '<strong>Note:</strong> Contact_Person column is missing from Organization_Settings table. Please add it with the name of a contact person for the IRS.';
+        }
+
+        const taxYear = parseInt(document.getElementById('year-select').value);
+
+        const startTs = new Date(Date.UTC(taxYear, 0, 1)).getTime() / 1000;
+        const endTs = new Date(Date.UTC(taxYear, 11, 31, 23, 59, 59)).getTime() / 1000;
+
+        const accountMap = {};
+        accounts.forEach(a => accountMap[a.id] = a[COL_ACC_NAME]);
+
+        const peopleMap = {};
+        people.forEach(p => { peopleMap[p.id] = p; });
+
+        const recipientTotals = {};
+
+        transactions.forEach(t => {
+          let d = t[COL_TRANS_DATE];
+          if (!d && d !== 0) d = t[COL_TRANS_DATE_BACKUP];
+          if (Array.isArray(d)) d = d[1];
+          if (!d) return;
+
+          if (d < startTs || d > endTs) return;
+
+          const acctId = t[COL_TRANS_ACCOUNT];
+          const acctName = accountMap[acctId] || "Unknown Account";
+
+          if (!acctName.toLowerCase().includes(TARGET_ACCOUNT_NAME)) return;
+
+          const recipientId = t[COL_TRANS_FROM_TO];
+          if (!recipientId) return;
+
+          const amount = parseFloat(t[COL_TRANS_AMOUNT]) || 0;
+          if (Math.abs(amount) < 0.01) return;
+
+          if (!recipientTotals[recipientId]) {
+            recipientTotals[recipientId] = 0;
+          }
+          recipientTotals[recipientId] += amount;
+        });
+
+        const allRecipients = Object.keys(recipientTotals)
+          .map(recipientId => {
+            const person = peopleMap[recipientId];
+            if (!person) return null;
+            return { person: person, amount: recipientTotals[recipientId] };
+          })
+          .filter(r => r !== null)
+          .sort((a, b) => a.person[COL_PEOPLE_NAME].localeCompare(b.person[COL_PEOPLE_NAME]));
+
+        // Filter to only those meeting $600 threshold (same as 1099-NEC)
+        const qualifiedRecipients = allRecipients.filter(r => Math.abs(r.amount) >= 600);
+
+        if (qualifiedRecipients.length === 0) {
+          if (allRecipients.length === 0) {
+            errMsg.innerText = `No blessing gift recipients found for ${taxYear}.`;
+          } else {
+            const amountsList = allRecipients.map(r => `${r.person[COL_PEOPLE_NAME]}: $${Math.abs(r.amount).toFixed(2)}`).join(", ");
+            errMsg.innerText = `Found ${allRecipients.length} recipient(s) but none meet the $600 threshold: ${amountsList}`;
+          }
+          container.innerHTML = "";
+          return;
+        }
+
+        // Calculate totals for Form 1096
+        const numForms = qualifiedRecipients.length;
+        const totalAmount = qualifiedRecipients.reduce((sum, r) => sum + Math.abs(r.amount), 0);
+        const fedTaxWithheld = 0; // Typically 0 for 1099-NEC non-employee compensation
+
+        const formattedEIN = formatEIN(orgInfo.ein);
+
+        // Generate Form 1096
+        let html = `
+          <div class="page-1096">
+            <!-- Tax Year (top right corner) -->
+            <div class="data-field tax-year">${taxYear}</div>
+
+            <!-- FILER Information -->
+            <div class="data-field filer-name">${orgInfo.name}</div>
+            <div class="data-field filer-street">${orgInfo.address}</div>
+            <div class="data-field filer-city-state-zip">${orgInfo.cityStateZip}</div>
+
+            <!-- Contact Information -->
+            <div class="data-field contact-name">${orgInfo.contactPerson}</div>
+            <div class="data-field contact-phone">${orgInfo.phone}</div>
+            <div class="data-field contact-email">${orgInfo.email}</div>
+            <div class="data-field contact-fax">${orgInfo.fax}</div>
+
+            <!-- Box 1 - EIN -->
+            <div class="data-field box1-ein">${formattedEIN}</div>
+
+            <!-- Box 2 - SSN (blank for businesses) -->
+            <div class="data-field box2-ssn"></div>
+
+            <!-- Box 3 - Number of forms -->
+            <div class="data-field box3-num-forms">${numForms}</div>
+
+            <!-- Box 4 - Federal income tax withheld -->
+            <div class="data-field box4-fed-tax">${fedTaxWithheld > 0 ? formatCurrency(fedTaxWithheld) : '0.00'}</div>
+
+            <!-- Box 5 - Total amount reported -->
+            <div class="data-field box5-total-amount">${formatCurrency(totalAmount)}</div>
+
+            <!-- Box 6 - Form type checkbox (X for 1099-NEC) -->
+            <div class="data-field box6-1099nec-check">X</div>
+          </div>
+        `;
+
+        // Add summary panel showing individual 1099-NEC forms
+        html += `
+          <div class="summary-panel">
+            <h3>Form 1096 Summary for Tax Year ${taxYear}</h3>
+            <p>This Form 1096 accompanies ${numForms} Form(s) 1099-NEC</p>
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Recipient Name</th>
+                  <th>TIN</th>
+                  <th style="text-align: right;">Amount (Box 1)</th>
+                </tr>
+              </thead>
+              <tbody>
+        `;
+
+        qualifiedRecipients.forEach((r, idx) => {
+          const tin = r.person[COL_PEOPLE_TIN] || "";
+          const maskedTIN = tin ? tin.replace(/\d(?=\d{4})/g, '*') : 'N/A';
+          html += `
+            <tr>
+              <td>${idx + 1}</td>
+              <td>${r.person[COL_PEOPLE_NAME] || 'Unknown'}</td>
+              <td>${maskedTIN}</td>
+              <td style="text-align: right;">$${formatCurrency(Math.abs(r.amount))}</td>
+            </tr>
+          `;
+        });
+
+        html += `
+              <tr class="total-row">
+                <td colspan="3">Total (Box 5)</td>
+                <td style="text-align: right;">$${formatCurrency(totalAmount)}</td>
+              </tr>
+              </tbody>
+            </table>
+            <p style="margin-top: 15px; font-size: 12px; color: #666;">
+              <strong>Important:</strong> Do not print this Form 1096 for IRS submission.
+              You must use official IRS scannable forms which can be ordered at
+              <a href="https://www.irs.gov/orderforms" target="_blank">www.irs.gov/orderforms</a>.
+              Use this generated form as a reference to fill out the official form.
+            </p>
+          </div>
+        `;
+
+        container.innerHTML = html;
+
+      } catch (e) {
+        console.error(e);
+        errMsg.innerText = "Error: " + e.message;
+        container.innerHTML = "";
+      }
+    }
+
+    initYearSelect();
+    loadData();
+  </script>
+</body>
+</html>
