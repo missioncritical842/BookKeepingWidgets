@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Form 1096 Generator (v1.19)</title>
+  <title>Form 1096 Generator (v1.20)</title>
   <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
   <style>
     body {
@@ -106,7 +106,7 @@
 
     /* Street address */
     .filer-street {
-      top: 1.35in;
+      top: 1.60in;
       left: 0.35in;
       width: 3.5in;
       font-size: 9pt;
@@ -114,7 +114,7 @@
 
     /* City, state, ZIP */
     .filer-city-state-zip {
-      top: 1.65in;
+      top: 1.90in;
       left: 0.35in;
       width: 3.5in;
       font-size: 9pt;
@@ -122,8 +122,8 @@
 
     /* Contact person name */
     .contact-name {
-      top: 2.05in;
-      left: 0.85in;
+      top: 2.48in;
+      left: 0.26in;
       width: 2.0in;
       font-size: 9pt;
     }
@@ -138,8 +138,8 @@
 
     /* Email address */
     .contact-email {
-      top: 2.35in;
-      left: 0.65in;
+      top: 2.78in;
+      left: 0.26in;
       width: 2.5in;
       font-size: 8pt;
     }
@@ -154,8 +154,8 @@
 
     /* Box 1 - Employer identification number (EIN) */
     .box1-ein {
-      top: 2.75in;
-      left: 1.1in;
+      top: 3.18in;
+      left: 0.31in;
       width: 1.4in;
       font-size: 11pt;
       letter-spacing: 1px;
@@ -172,8 +172,8 @@
 
     /* Box 3 - Total number of forms */
     .box3-num-forms {
-      top: 3.16in;
-      left: 0.65in;
+      top: 3.24in;
+      left: 2.62in;
       width: 0.8in;
       font-size: 12pt;
       font-weight: bold;
@@ -182,8 +182,8 @@
 
     /* Box 4 - Federal income tax withheld */
     .box4-fed-tax {
-      top: 3.16in;
-      left: 2.15in;
+      top: 3.24in;
+      left: 3.73in;
       width: 1.1in;
       font-size: 11pt;
       text-align: right;
@@ -191,8 +191,8 @@
 
     /* Box 5 - Total amount reported */
     .box5-total-amount {
-      top: 3.16in;
-      left: 4.0in;
+      top: 3.24in;
+      left: 5.46in;
       width: 1.3in;
       font-size: 11pt;
       text-align: right;
@@ -202,22 +202,13 @@
     /* Box 6 - Checkboxes for form type */
     /* Form 1099-NEC checkbox position */
     .box6-1099nec-check {
-      top: 4.57in;
-      left: 3.57in;
+      top: 4.61in;
+      left: 1.84in;
       width: 0.15in;
       font-size: 14pt;
       font-weight: bold;
     }
 
-    /* Tax year display */
-    .tax-year {
-      top: 0.55in;
-      left: 6.95in;
-      width: 0.5in;
-      font-size: 12pt;
-      font-weight: bold;
-      text-align: center;
-    }
 
     /* Return type indicator */
     .return-type {
@@ -504,9 +495,6 @@
         // Generate Form 1096
         let html = `
           <div class="page-1096">
-            <!-- Tax Year (top right corner) -->
-            <div class="data-field tax-year">${taxYear}</div>
-
             <!-- FILER Information -->
             <div class="data-field filer-name">${orgInfo.name}</div>
             <div class="data-field filer-street">${orgInfo.address}</div>
