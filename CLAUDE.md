@@ -3,7 +3,7 @@
 ## Repository Info
 - **GitHub**: https://github.com/missioncritical842/BookKeepingWidgets
 - **GitHub Pages**: https://missioncritical842.github.io/BookKeepingWidgets/
-- **Current Version**: v1.26
+- **Current Version**: v1.28
 
 ## Grist Documents Using These Widgets
 
@@ -16,18 +16,18 @@
 ## Widgets
 | Widget | GitHub Pages URL |
 |--------|------------------|
-| Form1096.html | `https://missioncritical842.github.io/BookKeepingWidgets/Form1096.html?v1.26` |
-| Form1099NEC.html | `https://missioncritical842.github.io/BookKeepingWidgets/Form1099NEC.html?v1.26` |
-| PayrollFilingsHelper.html | `https://missioncritical842.github.io/BookKeepingWidgets/PayrollFilingsHelper.html?v1.26` |
-| budgetvactuals.html | `https://missioncritical842.github.io/BookKeepingWidgets/budgetvactuals.html?v1.26` |
-| donationenvelopes.html | `https://missioncritical842.github.io/BookKeepingWidgets/donationenvelopes.html?v1.26` |
-| donationreceipts.html | `https://missioncritical842.github.io/BookKeepingWidgets/donationreceipts.html?v1.26` |
-| envelopes.html | `https://missioncritical842.github.io/BookKeepingWidgets/envelopes.html?v1.26` |
-| lastmonthpandl.html | `https://missioncritical842.github.io/BookKeepingWidgets/lastmonthpandl.html?v1.26` |
-| lastyearcashflow.html | `https://missioncritical842.github.io/BookKeepingWidgets/lastyearcashflow.html?v1.26` |
-| lastyearpandl.html | `https://missioncritical842.github.io/BookKeepingWidgets/lastyearpandl.html?v1.26` |
-| pandlalltime.html | `https://missioncritical842.github.io/BookKeepingWidgets/pandlalltime.html?v1.26` |
-| quarterlypandl.html | `https://missioncritical842.github.io/BookKeepingWidgets/quarterlypandl.html?v1.26` |
+| Form1096.html | `https://missioncritical842.github.io/BookKeepingWidgets/Form1096.html?v1.28` |
+| Form1099NEC.html | `https://missioncritical842.github.io/BookKeepingWidgets/Form1099NEC.html?v1.28` |
+| PayrollFilingsHelper.html | `https://missioncritical842.github.io/BookKeepingWidgets/PayrollFilingsHelper.html?v1.28` |
+| budgetvactuals.html | `https://missioncritical842.github.io/BookKeepingWidgets/budgetvactuals.html?v1.28` |
+| donationenvelopes.html | `https://missioncritical842.github.io/BookKeepingWidgets/donationenvelopes.html?v1.28` |
+| donationreceipts.html | `https://missioncritical842.github.io/BookKeepingWidgets/donationreceipts.html?v1.28` |
+| envelopes.html | `https://missioncritical842.github.io/BookKeepingWidgets/envelopes.html?v1.28` |
+| lastmonthpandl.html | `https://missioncritical842.github.io/BookKeepingWidgets/lastmonthpandl.html?v1.28` |
+| lastyearcashflow.html | `https://missioncritical842.github.io/BookKeepingWidgets/lastyearcashflow.html?v1.28` |
+| lastyearpandl.html | `https://missioncritical842.github.io/BookKeepingWidgets/lastyearpandl.html?v1.28` |
+| pandlalltime.html | `https://missioncritical842.github.io/BookKeepingWidgets/pandlalltime.html?v1.28` |
+| quarterlypandl.html | `https://missioncritical842.github.io/BookKeepingWidgets/quarterlypandl.html?v1.28` |
 
 ## Commit Requirements
 - **Always increment version number** in commit message (e.g., "Description of changes (v1.17)")
@@ -66,21 +66,27 @@ The 2026 budget system consists of three components:
 - **Annual_Total** (Formula): `$Jan + $Feb + ... + $Dec`
 - **Notes** (Text): Description
 
-#### 2026 Budget Lines
+#### 2026 Budget Lines (all leaf-level accounts)
 | Row | Account | Path | Annual | Notes |
 |-----|---------|------|--------|-------|
 | 1 | 23 | Direct Public Support:Individ, Business Contributions | $58,000 | Tithes and Offerings (INCOME) |
 | 2 | 106 | Payroll Expenses:Joe Salary | $20,000 | Joe Salary |
 | 3 | 107 | Payroll Expenses:Tim Salary | $20,000 | Tim Salary |
-| 4 | 58 | Management and General:Travel and Meetings | $2,600 | Trips and Education |
 | 5 | 110 | Program Services:Out:Missions:Global Missions | $1,500 | Global Missions |
 | 6 | 75 | Program Services:In:Events:Food and Drink | $1,250 | Food for special events |
 | 7 | 109 | Program Services:Out:Missions:Local Missions | $3,600 | Local Missions |
 | 8 | 105 | Program Services:In:Benevolence | $1,000 | Benevolence |
 | 9 | 100 | Program Services:Up:Worship Expenses | $1,450 | Worship Supplies |
 | 10 | 111 | Management and General:Facilities and Equipment:Liability Insurance | $400 | General liability insurance |
+| 11 | 59 | Management and General:Travel and Meetings:Conference, Convention, Meeting | $520 | Conference, Convention, Meeting |
+| 12 | 60 | Management and General:Travel and Meetings:Travel | $520 | Travel |
+| 13 | 102 | Management and General:Travel and Meetings:Food | $520 | Food while traveling |
+| 14 | 103 | Management and General:Travel and Meetings:Fuel | $520 | Fuel while traveling |
+| 15 | 104 | Management and General:Travel and Meetings:Lodging | $520 | Lodging while traveling |
 
 **Totals**: Income $58,000 | Expenses $51,800 | Net $6,200
+
+**Budget rule**: Always budget at the lowest-level (leaf) account. The widget rolls values up to parent accounts automatically.
 
 ### Accounts Added for Budget
 These accounts were created to support the 2026 budget:
@@ -133,8 +139,11 @@ Fetches 6 tables via `grist.docApi.fetchTable()`:
 - `Strategic_Fund` — cumulative fund data
 
 #### Features
-- **Income section**: Each budgeted income account with Annual Budget, YTD Budget, YTD Actual, Variance, % Used
-- **Expense section**: Same columns for expense accounts
+- **Hierarchical tree display**: Accounts shown with indented hierarchy; parent rows are bold subtotals, leaf rows are regular weight
+- **Automatic rollup**: Leaf-level budgets and actuals roll up to parent account subtotals
+- **Complete coverage**: Shows ALL accounts with budget or actual activity, even if $0 budgeted
+- **Income section**: Hierarchical income accounts with Annual Budget, YTD Budget, YTD Actual, Variance, % Used
+- **Expense section**: Same columns for expense accounts with hierarchy
 - **Summary section**:
   - Net Income (Budget) — annual
   - Net Income (Actual YTD)
