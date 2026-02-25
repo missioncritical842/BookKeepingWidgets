@@ -16,32 +16,11 @@
       margin-bottom: 20px;
       line-height: 1.2;
     }
-    #bva-widget h2 .line1 {
-      display: block;
-      font-size: 20px;
-      font-weight: bold;
-    }
-    #bva-widget h2 .line2 {
-      display: block;
-      font-size: 16px;
-      font-weight: normal;
-      color: #555;
-    }
-    #bva-widget h2 .line3 {
-      display: block;
-      font-size: 14px;
-      font-weight: normal;
-      color: #777;
-    }
-    .section {
-      margin-bottom: 30px;
-    }
-    .section h3 {
-      margin-bottom: 8px;
-      font-size: 16px;
-      font-weight: bold;
-      color: #444;
-    }
+    #bva-widget h2 .line1 { display: block; font-size: 20px; font-weight: bold; }
+    #bva-widget h2 .line2 { display: block; font-size: 16px; font-weight: normal; color: #555; }
+    #bva-widget h2 .line3 { display: block; font-size: 14px; font-weight: normal; color: #777; }
+    .section { margin-bottom: 30px; }
+    .section h3 { margin-bottom: 8px; font-size: 16px; font-weight: bold; color: #444; }
     .bva-table {
       width: 100%;
       border-collapse: collapse;
@@ -53,40 +32,26 @@
       padding: 5px 8px;
       vertical-align: middle;
     }
-    .bva-table th {
-      background-color: #e6e6e6;
-      text-align: center;
-      font-size: 13px;
-    }
-    .bva-table th:first-child {
-      text-align: left;
-    }
-    .bva-table td {
-      text-align: right;
-      font-size: 13px;
-    }
-    .bva-table td:first-child {
-      text-align: left;
-    }
-    .parent-row {
-      font-weight: bold;
-      background-color: #f0f0f0;
-    }
-    .parent-row-deep {
-      font-weight: bold;
-      background-color: #f7f7f7;
-    }
-    .leaf-row {
-      font-weight: normal;
-    }
-    .total-row {
-      font-weight: bold;
-      background-color: #e0e8f0;
-      font-size: 14px;
-    }
+    .bva-table th { background-color: #e6e6e6; text-align: center; font-size: 13px; }
+    .bva-table th:first-child { text-align: left; }
+    .bva-table td { text-align: right; font-size: 13px; }
+    .bva-table td:first-child { text-align: left; }
+    .parent-row { font-weight: bold; background-color: #f0f0f0; cursor: pointer; }
+    .parent-row:hover { background-color: #e8e8e8; }
+    .parent-row-deep { font-weight: bold; background-color: #f7f7f7; cursor: pointer; }
+    .parent-row-deep:hover { background-color: #efefef; }
+    .leaf-row { font-weight: normal; }
+    .total-row { font-weight: bold; background-color: #e0e8f0; font-size: 14px; }
     .favorable { color: #2a7d2a; }
     .unfavorable { color: #c0392b; }
     .pct-cell { font-size: 12px; color: #666; }
+    .toggle {
+      display: inline-block;
+      width: 16px;
+      font-size: 10px;
+      color: #666;
+      user-select: none;
+    }
     #summary-section {
       margin-top: 20px;
       border: 2px solid #999;
@@ -94,48 +59,20 @@
       padding: 15px;
       background-color: #fafafa;
     }
-    #summary-section h3 {
-      margin: 0 0 10px 0;
-      font-size: 16px;
-      text-align: center;
-      color: #333;
-    }
-    .summary-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 15px;
-    }
+    #summary-section h3 { margin: 0 0 10px 0; font-size: 16px; text-align: center; color: #333; }
+    .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
     .summary-box {
-      text-align: center;
-      padding: 10px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      background: #fff;
+      text-align: center; padding: 10px;
+      border: 1px solid #ddd; border-radius: 4px; background: #fff;
     }
-    .summary-box .label {
-      font-size: 12px;
-      color: #777;
-      margin-bottom: 4px;
-    }
-    .summary-box .value {
-      font-size: 18px;
-      font-weight: bold;
-    }
-    .summary-box .sub {
-      font-size: 11px;
-      color: #999;
-      margin-top: 2px;
-    }
-    #error-message {
-      color: red;
-      font-weight: bold;
-      margin-top: 10px;
-      text-align: center;
-      font-size: 14px;
-    }
+    .summary-box .label { font-size: 12px; color: #777; margin-bottom: 4px; }
+    .summary-box .value { font-size: 18px; font-weight: bold; }
+    .summary-box .sub { font-size: 11px; color: #999; margin-top: 2px; }
+    #error-message { color: red; font-weight: bold; margin-top: 10px; text-align: center; font-size: 14px; }
     @media print {
       #bva-widget { margin: 10px; }
       .summary-box .value { font-size: 16px; }
+      .toggle { display: none; }
     }
     @media (max-width: 600px) {
       .bva-table { font-size: 11px; }
@@ -154,42 +91,21 @@
     <div class="section">
       <h3>Income</h3>
       <table class="bva-table" id="income-table">
-        <tr>
-          <th>Account</th>
-          <th>Annual Budget</th>
-          <th>YTD Budget</th>
-          <th>YTD Actual</th>
-          <th>Variance</th>
-          <th>% Used</th>
-        </tr>
+        <tr><th>Account</th><th>Annual Budget</th><th>YTD Budget</th><th>YTD Actual</th><th>Variance</th><th>% Used</th></tr>
       </table>
     </div>
 
     <div class="section">
       <h3>General Fund Expenses</h3>
       <table class="bva-table" id="general-expense-table">
-        <tr>
-          <th>Account</th>
-          <th>Annual Budget</th>
-          <th>YTD Budget</th>
-          <th>YTD Actual</th>
-          <th>Variance</th>
-          <th>% Used</th>
-        </tr>
+        <tr><th>Account</th><th>Annual Budget</th><th>YTD Budget</th><th>YTD Actual</th><th>Variance</th><th>% Used</th></tr>
       </table>
     </div>
 
     <div class="section">
       <h3>Strategic Fund Expenses</h3>
       <table class="bva-table" id="strategic-expense-table">
-        <tr>
-          <th>Account</th>
-          <th>Annual Budget</th>
-          <th>YTD Budget</th>
-          <th>YTD Actual</th>
-          <th>Variance</th>
-          <th>% Used</th>
-        </tr>
+        <tr><th>Account</th><th>Annual Budget</th><th>YTD Budget</th><th>YTD Actual</th><th>Variance</th><th>% Used</th></tr>
       </table>
     </div>
 
@@ -223,17 +139,14 @@
   </div>
 
   <script>
-    grist.ready({
-      columns: [],
-      requiredAccess: 'read table'
-    });
+    grist.ready({ columns: [], requiredAccess: 'read table' });
 
-    const MONTH_COLS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    var MONTH_COLS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
     function fmt(amount) {
-      const abs = Math.abs(amount);
-      const str = abs.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+      var abs = Math.abs(amount);
+      var str = abs.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
       return amount < 0 ? '($' + str + ')' : '$' + str;
     }
 
@@ -244,17 +157,58 @@
 
     function convertToRecords(data) {
       if (Array.isArray(data)) return data;
-      const numRows = data.id ? data.id.length : 0;
-      const columns = Object.keys(data);
-      const records = [];
-      for (let i = 0; i < numRows; i++) {
-        const record = { id: data.id[i] };
-        columns.forEach(function(col) {
-          if (col !== 'id') record[col] = data[col][i];
-        });
+      var numRows = data.id ? data.id.length : 0;
+      var columns = Object.keys(data);
+      var records = [];
+      for (var i = 0; i < numRows; i++) {
+        var record = { id: data.id[i] };
+        columns.forEach(function(col) { if (col !== 'id') record[col] = data[col][i]; });
         records.push(record);
       }
       return records;
+    }
+
+    // --- TOGGLE LOGIC ---
+    function toggleChildren(nodeId, tableId) {
+      var table = document.getElementById(tableId);
+      var children = table.querySelectorAll('tr[data-parent-node="' + nodeId + '"]');
+      if (children.length === 0) return;
+      var expanding = children[0].style.display === 'none';
+
+      for (var i = 0; i < children.length; i++) {
+        var child = children[i];
+        if (expanding) {
+          child.style.display = '';
+        } else {
+          child.style.display = 'none';
+          // Recursively collapse any expanded grandchildren
+          if (child.getAttribute('data-has-children') === 'true') {
+            collapseDescendants(child.getAttribute('data-node-id'), tableId);
+            var t = child.querySelector('.toggle');
+            if (t) t.textContent = '\u25B6 ';
+          }
+        }
+      }
+
+      // Update toggle indicator on the clicked parent
+      var parentRow = table.querySelector('tr[data-node-id="' + nodeId + '"]');
+      if (parentRow) {
+        var toggle = parentRow.querySelector('.toggle');
+        if (toggle) toggle.textContent = expanding ? '\u25BC ' : '\u25B6 ';
+      }
+    }
+
+    function collapseDescendants(nodeId, tableId) {
+      var table = document.getElementById(tableId);
+      var children = table.querySelectorAll('tr[data-parent-node="' + nodeId + '"]');
+      for (var i = 0; i < children.length; i++) {
+        children[i].style.display = 'none';
+        if (children[i].getAttribute('data-has-children') === 'true') {
+          var t = children[i].querySelector('.toggle');
+          if (t) t.textContent = '\u25B6 ';
+          collapseDescendants(children[i].getAttribute('data-node-id'), tableId);
+        }
+      }
     }
 
     async function loadData() {
@@ -269,15 +223,12 @@
           grist.docApi.fetchTable('Classes')
         ]);
         var budgetData = results[0], transData = results[1], accData = results[2];
-        var typeData = results[3], orgData = results[4];
-        var classData = results[5];
+        var typeData = results[3], orgData = results[4], classData = results[5];
 
-        // Org name
         var orgRecords = convertToRecords(orgData);
         var orgName = (orgRecords.length > 0 && orgRecords[0].Org_Name) ? orgRecords[0].Org_Name : 'Organization';
         document.getElementById('orgName').textContent = orgName;
 
-        // Resolve class IDs by name
         var classRecords = convertToRecords(classData);
         var generalClassId = 0, strategicClassId = 0;
         classRecords.forEach(function(c) {
@@ -285,32 +236,17 @@
           if (c.Class_Name === 'Strategic') strategicClassId = c.id;
         });
 
-        // Account type map: rowId -> TYPE_NAME
         var typeRecords = convertToRecords(typeData);
         var typeMap = {};
         typeRecords.forEach(function(r) { typeMap[r.id] = r.TYPE_NAME; });
 
-        // Accounts maps
         var accRecords = convertToRecords(accData);
-        var accountsById = {};    // Grist row ID -> record
-        var accountsByAccId = {}; // ACCOUNT_ID -> record
-        var childrenOf = {};      // rowId -> [child rowIds]
+        var accountsById = {}, accountsByAccId = {};
         accRecords.forEach(function(r) {
           accountsById[r.id] = r;
           if (r.ACCOUNT_ID) accountsByAccId[r.ACCOUNT_ID] = r;
         });
-        // Build children map
-        accRecords.forEach(function(r) {
-          if (r.PARENT_ACCOUNT) {
-            var parent = accountsByAccId[r.PARENT_ACCOUNT];
-            if (parent) {
-              if (!childrenOf[parent.id]) childrenOf[parent.id] = [];
-              childrenOf[parent.id].push(r.id);
-            }
-          }
-        });
 
-        // Year and month
         var now = new Date();
         var year = now.getFullYear();
         var currentMonth = now.getMonth() + 1;
@@ -319,8 +255,7 @@
 
         // --- BUDGET DATA (split by fund) ---
         var budgetRecords = convertToRecords(budgetData).filter(function(b) { return b.Year === year; });
-        var generalBudgetMap = {};   // accountRowId -> {annual, ytdBudget}
-        var strategicBudgetMap = {};
+        var generalBudgetMap = {}, strategicBudgetMap = {};
         budgetRecords.forEach(function(b) {
           var annual = 0, ytdBudget = 0;
           MONTH_COLS.forEach(function(col, idx) {
@@ -335,8 +270,7 @@
 
         // --- ACTUALS DATA (split by class) ---
         var transRecords = convertToRecords(transData);
-        var generalActualsMap = {};   // accountRowId -> raw YTD amount
-        var strategicActualsMap = {};
+        var generalActualsMap = {}, strategicActualsMap = {};
         transRecords.forEach(function(t) {
           if (!t.Year_Posted || !t.Month_Posted) return;
           if (t.Year_Posted !== year) return;
@@ -385,11 +319,9 @@
             return node;
           }
 
-          // Create nodes for all active accounts
           Object.keys(budgetMap).forEach(function(id) { ensureNode(Number(id)); });
           Object.keys(actualsMap).forEach(function(id) { ensureNode(Number(id)); });
 
-          // Assign values
           Object.keys(budgetMap).forEach(function(id) {
             var node = treeNodes[Number(id)];
             if (node) { node.annual = budgetMap[Number(id)].annual; node.ytdBudget = budgetMap[Number(id)].ytdBudget; }
@@ -399,7 +331,6 @@
             if (node) { node.ytdActual = actualsMap[Number(id)]; }
           });
 
-          // Roll up
           function rollUp(node) {
             if (node.children.length === 0) return;
             node.children.forEach(function(child) { rollUp(child); });
@@ -414,13 +345,25 @@
           });
           roots.forEach(function(r) { rollUp(r); });
 
-          // Flatten
-          function flattenTree(node, depth) {
+          // Flatten with parent tracking
+          function flattenTree(node, depth, parentId) {
             var rows = [];
             if (Math.abs(node.annual) < 0.005 && Math.abs(node.ytdBudget) < 0.005 && Math.abs(node.ytdActual) < 0.005) return rows;
-            rows.push({ name: node.name, annual: node.annual, ytdBudget: node.ytdBudget, ytdActual: node.ytdActual, isLeaf: node.isLeaf, depth: depth });
-            var sorted = node.children.slice().sort(function(a, b) { return a.name.localeCompare(b.name); });
-            sorted.forEach(function(child) { rows.push.apply(rows, flattenTree(child, depth + 1)); });
+            var hasChildren = false;
+            var activeChildren = node.children.filter(function(c) {
+              return Math.abs(c.annual) >= 0.005 || Math.abs(c.ytdBudget) >= 0.005 || Math.abs(c.ytdActual) >= 0.005;
+            });
+            hasChildren = activeChildren.length > 0;
+
+            rows.push({
+              nodeId: node.id, parentId: parentId, name: node.name,
+              annual: node.annual, ytdBudget: node.ytdBudget, ytdActual: node.ytdActual,
+              isLeaf: node.isLeaf, hasChildren: hasChildren, depth: depth
+            });
+            var sorted = activeChildren.slice().sort(function(a, b) { return a.name.localeCompare(b.name); });
+            sorted.forEach(function(child) {
+              rows.push.apply(rows, flattenTree(child, depth + 1, node.id));
+            });
             return rows;
           }
 
@@ -430,8 +373,8 @@
           expenseRoots.sort(function(a, b) { return a.name.localeCompare(b.name); });
 
           var incomeRows = [], expenseRows = [];
-          incomeRoots.forEach(function(r) { incomeRows.push.apply(incomeRows, flattenTree(r, 0)); });
-          expenseRoots.forEach(function(r) { expenseRows.push.apply(expenseRows, flattenTree(r, 0)); });
+          incomeRoots.forEach(function(r) { incomeRows.push.apply(incomeRows, flattenTree(r, 0, null)); });
+          expenseRoots.forEach(function(r) { expenseRows.push.apply(expenseRows, flattenTree(r, 0, null)); });
 
           var totIncAnnual = 0, totIncYtdBgt = 0, totIncYtdAct = 0;
           incomeRoots.forEach(function(r) { totIncAnnual += r.annual; totIncYtdBgt += r.ytdBudget; totIncYtdAct += r.ytdActual; });
@@ -445,37 +388,32 @@
           };
         }
 
-        // Build trees for each fund
         var genTree = buildTree(generalBudgetMap, generalActualsMap);
         var stratTree = buildTree(strategicBudgetMap, strategicActualsMap);
 
-        // --- RENDER INCOME (General fund only) ---
+        // --- RENDER ---
         var incomeTable = document.getElementById('income-table');
         genTree.incomeRows.forEach(function(row) {
           var variance = row.ytdActual - row.ytdBudget;
-          addRow(incomeTable, row.name, row.annual, row.ytdBudget, row.ytdActual, variance, true, row.depth, row.isLeaf);
+          addRow(incomeTable, 'income-table', row, row.annual, row.ytdBudget, row.ytdActual, variance, true);
         });
-        var incomeVariance = genTree.totIncYtdAct - genTree.totIncYtdBgt;
         addTotalRow(incomeTable, 'Total Income',
-          genTree.totIncAnnual, genTree.totIncYtdBgt, genTree.totIncYtdAct, incomeVariance, true);
+          genTree.totIncAnnual, genTree.totIncYtdBgt, genTree.totIncYtdAct,
+          genTree.totIncYtdAct - genTree.totIncYtdBgt, true);
 
-        // --- RENDER GENERAL FUND EXPENSES ---
         var genExpTable = document.getElementById('general-expense-table');
         genTree.expenseRows.forEach(function(row) {
           var actual = Math.abs(row.ytdActual);
-          var variance = row.ytdBudget - actual;
-          addRow(genExpTable, row.name, row.annual, row.ytdBudget, actual, variance, false, row.depth, row.isLeaf);
+          addRow(genExpTable, 'general-expense-table', row, row.annual, row.ytdBudget, actual, row.ytdBudget - actual, false);
         });
-        var genExpVariance = genTree.totExpYtdBgt - genTree.totExpYtdAct;
         addTotalRow(genExpTable, 'Total General Fund Expenses',
-          genTree.totExpAnnual, genTree.totExpYtdBgt, genTree.totExpYtdAct, genExpVariance, false);
+          genTree.totExpAnnual, genTree.totExpYtdBgt, genTree.totExpYtdAct,
+          genTree.totExpYtdBgt - genTree.totExpYtdAct, false);
 
-        // --- RENDER STRATEGIC FUND EXPENSES ---
         var stratExpTable = document.getElementById('strategic-expense-table');
         stratTree.expenseRows.forEach(function(row) {
           var actual = Math.abs(row.ytdActual);
-          var variance = row.ytdBudget - actual;
-          addRow(stratExpTable, row.name, row.annual, row.ytdBudget, actual, variance, false, row.depth, row.isLeaf);
+          addRow(stratExpTable, 'strategic-expense-table', row, row.annual, row.ytdBudget, actual, row.ytdBudget - actual, false);
         });
         if (stratTree.expenseRows.length === 0) {
           var emptyRow = stratExpTable.insertRow();
@@ -486,9 +424,9 @@
           emptyCell.style.color = '#999';
           emptyCell.style.fontStyle = 'italic';
         }
-        var stratExpVariance = stratTree.totExpYtdBgt - stratTree.totExpYtdAct;
         addTotalRow(stratExpTable, 'Total Strategic Fund Expenses',
-          stratTree.totExpAnnual, stratTree.totExpYtdBgt, stratTree.totExpYtdAct, stratExpVariance, false);
+          stratTree.totExpAnnual, stratTree.totExpYtdBgt, stratTree.totExpYtdAct,
+          stratTree.totExpYtdBgt - stratTree.totExpYtdAct, false);
 
         // --- SUMMARY ---
         var netBudget = genTree.totIncAnnual - genTree.totExpAnnual;
@@ -496,37 +434,28 @@
 
         document.getElementById('net-budget').textContent = fmt(netBudget);
         document.getElementById('net-budget').className = 'value ' + (netBudget >= 0 ? 'favorable' : 'unfavorable');
-
         document.getElementById('net-actual').textContent = fmt(netActual);
         document.getElementById('net-actual').className = 'value ' + (netActual >= 0 ? 'favorable' : 'unfavorable');
-        document.getElementById('net-actual-sub').textContent =
-          'Through ' + MONTH_NAMES[currentMonth - 1];
+        document.getElementById('net-actual-sub').textContent = 'Through ' + MONTH_NAMES[currentMonth - 1];
 
-        // --- FUND BALANCES (computed purely from transactions by class) ---
-        var generalBalance = 0;
-        var strategicBalance = 0;
+        // --- FUND BALANCES ---
+        var generalBalance = 0, strategicBalance = 0;
         transRecords.forEach(function(t) {
           if (!t.Year_Posted || !t.Month_Posted) return;
           if (t.Year_Posted > year) return;
           if (t.Year_Posted === year && t.Month_Posted > currentMonth) return;
           var cls = t.Class2 || 0;
           var amount = t.Amount || 0;
-          if (cls === strategicClassId) {
-            strategicBalance += amount;
-          } else {
-            generalBalance += amount;
-          }
+          if (cls === strategicClassId) { strategicBalance += amount; }
+          else { generalBalance += amount; }
         });
 
         document.getElementById('general-fund').textContent = fmt(generalBalance);
         document.getElementById('general-fund').className = 'value ' + (generalBalance >= 0 ? 'favorable' : 'unfavorable');
-        document.getElementById('general-fund-sub').textContent =
-          'Through ' + MONTH_NAMES[currentMonth - 1] + ' ' + year;
-
+        document.getElementById('general-fund-sub').textContent = 'Through ' + MONTH_NAMES[currentMonth - 1] + ' ' + year;
         document.getElementById('strategic-fund').textContent = fmt(strategicBalance);
         document.getElementById('strategic-fund').className = 'value ' + (strategicBalance >= 0 ? 'favorable' : 'unfavorable');
-        document.getElementById('strategic-fund-sub').textContent =
-          'Through ' + MONTH_NAMES[currentMonth - 1] + ' ' + year;
+        document.getElementById('strategic-fund-sub').textContent = 'Through ' + MONTH_NAMES[currentMonth - 1] + ' ' + year;
 
       } catch (err) {
         console.error('Error loading data:', err);
@@ -534,24 +463,45 @@
       }
     }
 
-    function addRow(table, name, annual, ytdBudget, ytdActual, variance, isIncome, depth, isLeaf) {
-      var row = table.insertRow();
-      var indent = 8 + (depth * 20);
+    function addRow(table, tableId, rowData, annual, ytdBudget, ytdActual, variance, isIncome) {
+      var tr = table.insertRow();
+      var indent = 8 + (rowData.depth * 20);
 
-      if (!isLeaf) {
-        row.className = depth === 0 ? 'parent-row' : 'parent-row-deep';
+      // Data attributes for toggle
+      tr.setAttribute('data-node-id', rowData.nodeId);
+      if (rowData.parentId !== null) {
+        tr.setAttribute('data-parent-node', rowData.parentId);
+      }
+      tr.setAttribute('data-has-children', rowData.hasChildren ? 'true' : 'false');
+
+      // Style based on parent/leaf
+      if (rowData.hasChildren) {
+        tr.className = rowData.depth === 0 ? 'parent-row' : 'parent-row-deep';
+        tr.onclick = function() { toggleChildren(rowData.nodeId, tableId); };
       } else {
-        row.className = 'leaf-row';
+        tr.className = 'leaf-row';
       }
 
-      var nameCell = row.insertCell(0);
-      var annualCell = row.insertCell(1);
-      var ytdBudgetCell = row.insertCell(2);
-      var ytdActualCell = row.insertCell(3);
-      var varianceCell = row.insertCell(4);
-      var pctCell = row.insertCell(5);
+      // Hide child rows by default (depth > 0)
+      if (rowData.parentId !== null) {
+        tr.style.display = 'none';
+      }
 
-      nameCell.textContent = name;
+      var nameCell = tr.insertCell(0);
+      var annualCell = tr.insertCell(1);
+      var ytdBudgetCell = tr.insertCell(2);
+      var ytdActualCell = tr.insertCell(3);
+      var varianceCell = tr.insertCell(4);
+      var pctCell = tr.insertCell(5);
+
+      // Toggle arrow + name
+      var nameHtml = '';
+      if (rowData.hasChildren) {
+        nameHtml = '<span class="toggle">\u25B6 </span>' + rowData.name;
+      } else {
+        nameHtml = '<span class="toggle"></span>' + rowData.name;
+      }
+      nameCell.innerHTML = nameHtml;
       nameCell.style.paddingLeft = indent + 'px';
 
       annualCell.textContent = fmt(annual);
@@ -564,14 +514,14 @@
     }
 
     function addTotalRow(table, label, annual, ytdBudget, ytdActual, variance, isIncome) {
-      var row = table.insertRow();
-      row.className = 'total-row';
-      var nameCell = row.insertCell(0);
-      var annualCell = row.insertCell(1);
-      var ytdBudgetCell = row.insertCell(2);
-      var ytdActualCell = row.insertCell(3);
-      var varianceCell = row.insertCell(4);
-      var pctCell = row.insertCell(5);
+      var tr = table.insertRow();
+      tr.className = 'total-row';
+      var nameCell = tr.insertCell(0);
+      var annualCell = tr.insertCell(1);
+      var ytdBudgetCell = tr.insertCell(2);
+      var ytdActualCell = tr.insertCell(3);
+      var varianceCell = tr.insertCell(4);
+      var pctCell = tr.insertCell(5);
 
       nameCell.textContent = label;
       annualCell.textContent = fmt(annual);
