@@ -252,15 +252,25 @@
           grist.docApi.fetchTable('Accounts'),
           grist.docApi.fetchTable('Account_Types'),
           grist.docApi.fetchTable('Organization_Settings'),
-          grist.docApi.fetchTable('Fund_Allocations')
+          grist.docApi.fetchTable('Fund_Allocations'),
+          grist.docApi.fetchTable('Classes')
         ]);
         var budgetData = results[0], transData = results[1], accData = results[2];
         var typeData = results[3], orgData = results[4], allocData = results[5];
+        var classData = results[6];
 
         // Org name
         var orgRecords = convertToRecords(orgData);
         var orgName = (orgRecords.length > 0 && orgRecords[0].Org_Name) ? orgRecords[0].Org_Name : 'Organization';
         document.getElementById('orgName').textContent = orgName;
+
+        // Resolve class IDs by name
+        var classRecords = convertToRecords(classData);
+        var generalClassId = 0, strategicClassId = 0;
+        classRecords.forEach(function(c) {
+          if (c.Class_Name === 'General') generalClassId = c.id;
+          if (c.Class_Name === 'Strategic') strategicClassId = c.id;
+        });
 
         // Account type map: rowId -> TYPE_NAME
         var typeRecords = convertToRecords(typeData);
@@ -309,11 +319,15 @@
 
         // --- ACTUALS DATA (leaf-level from transactions) ---
         var transRecords = convertToRecords(transData);
-        var actualsMap = {}; // accountRowId -> raw YTD amount
+        // General-class actuals for budget vs actuals display
+        var actualsMap = {}; // accountRowId -> raw YTD amount (General class only)
         transRecords.forEach(function(t) {
           if (!t.Year_Posted || !t.Month_Posted) return;
           if (t.Year_Posted !== year) return;
           if (t.Month_Posted > currentMonth) return;
+          // Only count General class or unclassified (0/null) for budget vs actuals
+          var cls = t.Class2 || 0;
+          if (cls !== generalClassId && cls !== 0) return;
           var amount = t.Amount || 0;
           var accountRef = t.Account_Long_Name;
           if (!accountRef) return;
@@ -503,24 +517,33 @@
           'Through ' + MONTH_NAMES[currentMonth - 1];
 
         // --- FUND BALANCES ---
-        // Total cumulative net = sum of ALL transactions ever through current month
-        var totalCumulativeNet = 0;
+        // General Fund = sum of General-class transactions (all time) - strategic allocations
+        var generalTransNet = 0;
+        var strategicTransNet = 0;
         transRecords.forEach(function(t) {
           if (!t.Year_Posted || !t.Month_Posted) return;
           if (t.Year_Posted > year) return;
           if (t.Year_Posted === year && t.Month_Posted > currentMonth) return;
-          totalCumulativeNet += (t.Amount || 0);
+          var cls = t.Class2 || 0;
+          var amount = t.Amount || 0;
+          if (cls === strategicClassId) {
+            strategicTransNet += amount;
+          } else {
+            // General class or unclassified
+            generalTransNet += amount;
+          }
         });
 
-        // Strategic Fund = sum of all Fund_Allocations
+        // Strategic Fund = allocations + strategic-class transactions (expenses reduce it)
         var allocRecords = convertToRecords(allocData);
-        var strategicBalance = 0;
+        var totalAllocations = 0;
         allocRecords.forEach(function(a) {
-          strategicBalance += (a.Strategic_Amount || 0);
+          totalAllocations += (a.Strategic_Amount || 0);
         });
+        var strategicBalance = totalAllocations + strategicTransNet;
 
-        // General Fund = total cumulative net - strategic fund
-        var generalBalance = totalCumulativeNet - strategicBalance;
+        // General Fund = general-class net income - allocations moved to strategic
+        var generalBalance = generalTransNet - totalAllocations;
 
         document.getElementById('general-fund').textContent = fmt(generalBalance);
         document.getElementById('general-fund').className = 'value ' + (generalBalance >= 0 ? 'favorable' : 'unfavorable');
@@ -528,9 +551,10 @@
           'Through ' + MONTH_NAMES[currentMonth - 1] + ' ' + year;
 
         document.getElementById('strategic-fund').textContent = fmt(strategicBalance);
-        document.getElementById('strategic-fund').className = 'value favorable';
+        document.getElementById('strategic-fund').className = 'value ' + (strategicBalance >= 0 ? 'favorable' : 'unfavorable');
         document.getElementById('strategic-fund-sub').textContent =
-          allocRecords.length > 0 ? 'Allocated from prior year surpluses' : 'No allocations yet';
+          '$' + totalAllocations.toLocaleString(undefined, {minimumFractionDigits: 0}) + ' allocated, '
+          + (strategicTransNet !== 0 ? fmt(strategicTransNet) + ' spent' : 'no expenses yet');
 
       } catch (err) {
         console.error('Error loading data:', err);
