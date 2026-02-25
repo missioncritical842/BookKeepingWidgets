@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Budget vs Actuals</title>
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+  <style>
+    #bva-widget {
+      font-family: Georgia, serif;
+      margin: 20px;
+      font-size: 14px;
+      color: #333;
+    }
+    #bva-widget h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      line-height: 1.2;
+    }
+    #bva-widget h2 .line1 {
+      display: block;
+      font-size: 20px;
+      font-weight: bold;
+    }
+    #bva-widget h2 .line2 {
+      display: block;
+      font-size: 16px;
+      font-weight: normal;
+      color: #555;
+    }
+    #bva-widget h2 .line3 {
+      display: block;
+      font-size: 14px;
+      font-weight: normal;
+      color: #777;
+    }
+    .section {
+      margin-bottom: 30px;
+    }
+    .section h3 {
+      margin-bottom: 8px;
+      font-size: 16px;
+      font-weight: bold;
+      color: #444;
+    }
+    .bva-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 10px;
+      font-size: 13px;
+    }
+    .bva-table th, .bva-table td {
+      border: 1px solid #ccc;
+      padding: 5px 8px;
+      vertical-align: middle;
+    }
+    .bva-table th {
+      background-color: #e6e6e6;
+      text-align: center;
+      font-size: 13px;
+    }
+    .bva-table th:first-child {
+      text-align: left;
+    }
+    .bva-table td {
+      text-align: right;
+      font-size: 13px;
+    }
+    .bva-table td:first-child {
+      text-align: left;
+    }
+    .total-row {
+      font-weight: bold;
+      background-color: #f0f0f0;
+    }
+    .grand-total-row {
+      font-weight: bold;
+      background-color: #e0e8f0;
+      font-size: 14px;
+    }
+    .favorable { color: #2a7d2a; }
+    .unfavorable { color: #c0392b; }
+    .pct-cell { font-size: 12px; color: #666; }
+    #summary-section {
+      margin-top: 20px;
+      border: 2px solid #999;
+      border-radius: 6px;
+      padding: 15px;
+      background-color: #fafafa;
+    }
+    #summary-section h3 {
+      margin: 0 0 10px 0;
+      font-size: 16px;
+      text-align: center;
+      color: #333;
+    }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+    .summary-box {
+      text-align: center;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: #fff;
+    }
+    .summary-box .label {
+      font-size: 12px;
+      color: #777;
+      margin-bottom: 4px;
+    }
+    .summary-box .value {
+      font-size: 18px;
+      font-weight: bold;
+    }
+    .summary-box .sub {
+      font-size: 11px;
+      color: #999;
+      margin-top: 2px;
+    }
+    #error-message {
+      color: red;
+      font-weight: bold;
+      margin-top: 10px;
+      text-align: center;
+      font-size: 14px;
+    }
+    @media print {
+      #bva-widget { margin: 10px; }
+      .summary-box .value { font-size: 16px; }
+    }
+    @media (max-width: 600px) {
+      .bva-table { font-size: 11px; }
+      .summary-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div id="bva-widget">
+    <h2>
+      <span class="line1" id="orgName">Organization</span>
+      <span class="line2">Budget vs Actuals</span>
+      <span class="line3" id="subtitle"></span>
+    </h2>
+
+    <div class="section">
+      <h3>Income</h3>
+      <table class="bva-table" id="income-table">
+        <tr>
+          <th>Account</th>
+          <th>Annual Budget</th>
+          <th>YTD Budget</th>
+          <th>YTD Actual</th>
+          <th>Variance</th>
+          <th>% Used</th>
+        </tr>
+      </table>
+    </div>
+
+    <div class="section">
+      <h3>Expenses</h3>
+      <table class="bva-table" id="expense-table">
+        <tr>
+          <th>Account</th>
+          <th>Annual Budget</th>
+          <th>YTD Budget</th>
+          <th>YTD Actual</th>
+          <th>Variance</th>
+          <th>% Used</th>
+        </tr>
+      </table>
+    </div>
+
+    <div id="summary-section">
+      <h3>Summary</h3>
+      <div class="summary-grid">
+        <div class="summary-box">
+          <div class="label">Net Income (Budget)</div>
+          <div class="value" id="net-budget">—</div>
+          <div class="sub">Annual</div>
+        </div>
+        <div class="summary-box">
+          <div class="label">Net Income (Actual YTD)</div>
+          <div class="value" id="net-actual">—</div>
+          <div class="sub" id="net-actual-sub"></div>
+        </div>
+        <div class="summary-box">
+          <div class="label">Strategic Fund (Prior Year Carryover)</div>
+          <div class="value" id="fund-carryover">—</div>
+          <div class="sub" id="fund-carryover-sub"></div>
+        </div>
+        <div class="summary-box">
+          <div class="label">Strategic Fund (Cumulative Balance)</div>
+          <div class="value" id="fund-cumulative">—</div>
+          <div class="sub" id="fund-cumulative-sub"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="error-message"></div>
+  </div>
+
+  <script>
+    grist.ready({
+      columns: [],
+      requiredAccess: 'read table'
+    });
+
+    const MONTH_COLS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+    function fmt(amount) {
+      const abs = Math.abs(amount);
+      const str = abs.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+      return amount < 0 ? `($${str})` : `$${str}`;
+    }
+
+    function pct(actual, budget) {
+      if (!budget || budget === 0) return '—';
+      return Math.round((actual / budget) * 100) + '%';
+    }
+
+    function convertToRecords(data) {
+      if (Array.isArray(data)) return data;
+      const numRows = data.id ? data.id.length : 0;
+      const columns = Object.keys(data);
+      const records = [];
+      for (let i = 0; i < numRows; i++) {
+        const record = { id: data.id[i] };
+        columns.forEach(col => {
+          if (col !== 'id') record[col] = data[col][i];
+        });
+        records.push(record);
+      }
+      return records;
+    }
+
+    async function loadData() {
+      const errorEl = document.getElementById('error-message');
+      try {
+        const [budgetData, transData, accData, typeData, orgData, fundData] = await Promise.all([
+          grist.docApi.fetchTable('Budget'),
+          grist.docApi.fetchTable('Transaction_Categorization'),
+          grist.docApi.fetchTable('Accounts'),
+          grist.docApi.fetchTable('Account_Types'),
+          grist.docApi.fetchTable('Organization_Settings'),
+          grist.docApi.fetchTable('Strategic_Fund')
+        ]);
+
+        const orgRecords = convertToRecords(orgData);
+        const orgName = (orgRecords.length > 0 && orgRecords[0].Org_Name) ? orgRecords[0].Org_Name : 'Organization';
+        document.getElementById('orgName').textContent = orgName;
+
+        // Build account type map: rowId -> TYPE_NAME
+        const typeRecords = convertToRecords(typeData);
+        const typeMap = {};
+        typeRecords.forEach(r => { typeMap[r.id] = r.TYPE_NAME; });
+
+        // Build accounts maps
+        const accRecords = convertToRecords(accData);
+        const accountsById = {};    // Grist row ID -> record
+        const accountsByAccId = {}; // ACCOUNT_ID -> record
+        accRecords.forEach(r => {
+          accountsById[r.id] = r;
+          if (r.ACCOUNT_ID) accountsByAccId[r.ACCOUNT_ID] = r;
+        });
+
+        // Determine year and current month
+        const now = new Date();
+        const year = now.getFullYear();
+        const currentMonth = now.getMonth() + 1; // 1-12
+
+        document.getElementById('subtitle').textContent =
+          `${year} \u2014 Through ${MONTH_NAMES[currentMonth - 1]}`;
+
+        // --- BUDGET DATA ---
+        const budgetRecords = convertToRecords(budgetData).filter(b => b.Year === year);
+
+        // For each budget row, compute annual and YTD budget
+        // Also resolve account type
+        const budgetLines = budgetRecords.map(b => {
+          const acct = accountsById[b.Account];
+          if (!acct) return null;
+          const typeName = typeMap[acct.ACCOUNT_TYPE];
+          if (!typeName || (typeName !== 'INCOME' && typeName !== 'EXPENSE')) return null;
+
+          let annual = 0;
+          let ytdBudget = 0;
+          MONTH_COLS.forEach((col, idx) => {
+            const val = b[col] || 0;
+            annual += val;
+            if (idx < currentMonth) ytdBudget += val;
+          });
+
+          // Build display name from account hierarchy
+          const displayName = getShortName(acct, accountsByAccId);
+
+          return {
+            accountRowId: b.Account,
+            accountName: displayName,
+            typeName: typeName,
+            annual: annual,
+            ytdBudget: ytdBudget,
+            notes: b.Notes || ''
+          };
+        }).filter(b => b !== null);
+
+        // --- ACTUALS DATA ---
+        // Build ancestor map for rollup
+        function getAncestorIds(accountRowId) {
+          const ids = [accountRowId];
+          let current = accountsById[accountRowId];
+          let depth = 0;
+          while (current && depth < 10) {
+            const parentAccId = current.PARENT_ACCOUNT;
+            if (!parentAccId) break;
+            const parent = accountsByAccId[parentAccId];
+            if (!parent) break;
+            ids.push(parent.id);
+            current = parent;
+            depth++;
+          }
+          return ids;
+        }
+
+        // Process transactions for current year
+        const transRecords = convertToRecords(transData);
+        const actualsMap = {}; // accountRowId -> YTD amount (rolled up to ancestors)
+
+        transRecords.forEach(t => {
+          // Get year from Year_Posted or compute from date
+          let tYear = t.Year_Posted;
+          let tMonth = t.Month_Posted;
+          if (!tYear || !tMonth) return;
+
+          if (tYear !== year) return;
+          if (tMonth > currentMonth) return;
+
+          const amount = t.Amount || 0;
+          const accountRef = t.Account_Long_Name;
+          if (!accountRef) return;
+
+          // Roll up to all ancestors
+          const ancestors = getAncestorIds(accountRef);
+          ancestors.forEach(aid => {
+            actualsMap[aid] = (actualsMap[aid] || 0) + amount;
+          });
+        });
+
+        // --- RENDER ---
+        const incomeTable = document.getElementById('income-table');
+        const expenseTable = document.getElementById('expense-table');
+
+        let totalIncomeAnnual = 0, totalIncomeYtdBudget = 0, totalIncomeYtdActual = 0;
+        let totalExpenseAnnual = 0, totalExpenseYtdBudget = 0, totalExpenseYtdActual = 0;
+
+        // Sort budget lines by type then name
+        budgetLines.sort((a, b) => a.accountName.localeCompare(b.accountName));
+
+        budgetLines.forEach(line => {
+          const rawActual = actualsMap[line.accountRowId] || 0;
+
+          if (line.typeName === 'INCOME') {
+            const actual = rawActual; // positive
+            const variance = actual - line.ytdBudget;
+            totalIncomeAnnual += line.annual;
+            totalIncomeYtdBudget += line.ytdBudget;
+            totalIncomeYtdActual += actual;
+            addRow(incomeTable, line.accountName, line.annual, line.ytdBudget, actual, variance, true);
+          } else {
+            const actual = Math.abs(rawActual); // make positive for display
+            const variance = line.ytdBudget - actual; // positive = under budget = good
+            totalExpenseAnnual += line.annual;
+            totalExpenseYtdBudget += line.ytdBudget;
+            totalExpenseYtdActual += actual;
+            addRow(expenseTable, line.accountName, line.annual, line.ytdBudget, actual, variance, false);
+          }
+        });
+
+        // Total rows
+        const incomeVariance = totalIncomeYtdActual - totalIncomeYtdBudget;
+        addTotalRow(incomeTable, 'Total Income',
+          totalIncomeAnnual, totalIncomeYtdBudget, totalIncomeYtdActual, incomeVariance, true);
+
+        const expenseVariance = totalExpenseYtdBudget - totalExpenseYtdActual;
+        addTotalRow(expenseTable, 'Total Expenses',
+          totalExpenseAnnual, totalExpenseYtdBudget, totalExpenseYtdActual, expenseVariance, false);
+
+        // --- SUMMARY ---
+        const netBudget = totalIncomeAnnual - totalExpenseAnnual;
+        const netActual = totalIncomeYtdActual - totalExpenseYtdActual;
+
+        document.getElementById('net-budget').textContent = fmt(netBudget);
+        document.getElementById('net-budget').className = 'value ' + (netBudget >= 0 ? 'favorable' : 'unfavorable');
+
+        document.getElementById('net-actual').textContent = fmt(netActual);
+        document.getElementById('net-actual').className = 'value ' + (netActual >= 0 ? 'favorable' : 'unfavorable');
+        document.getElementById('net-actual-sub').textContent =
+          `Through ${MONTH_NAMES[currentMonth - 1]}`;
+
+        // Strategic Fund - cross-year accumulation
+        const fundRecords = convertToRecords(fundData);
+
+        // Prior year carryover: sum of all Actual_Net from years before current
+        let priorYearCarryover = 0;
+        fundRecords.forEach(f => {
+          if (f.Year < year) {
+            priorYearCarryover += (f.Actual_Net || 0);
+          }
+        });
+        document.getElementById('fund-carryover').textContent = fmt(priorYearCarryover);
+        document.getElementById('fund-carryover').className = 'value ' + (priorYearCarryover >= 0 ? 'favorable' : 'unfavorable');
+        const priorYears = [...new Set(fundRecords.filter(f => f.Year < year).map(f => f.Year))].sort();
+        document.getElementById('fund-carryover-sub').textContent =
+          priorYears.length > 0 ? `From ${priorYears[0]}\u2013${priorYears[priorYears.length - 1]}` : 'No prior years';
+
+        // Cumulative balance: all years up through current month of current year
+        let cumulativeBalance = priorYearCarryover;
+        fundRecords.forEach(f => {
+          if (f.Year === year && f.Month <= currentMonth) {
+            cumulativeBalance += (f.Actual_Net || 0);
+          }
+        });
+        document.getElementById('fund-cumulative').textContent = fmt(cumulativeBalance);
+        document.getElementById('fund-cumulative').className = 'value ' + (cumulativeBalance >= 0 ? 'favorable' : 'unfavorable');
+        document.getElementById('fund-cumulative-sub').textContent =
+          `Through ${MONTH_NAMES[currentMonth - 1]} ${year}`;
+
+      } catch (err) {
+        console.error('Error loading data:', err);
+        errorEl.textContent = 'Error loading data: ' + err.message;
+      }
+    }
+
+    function getShortName(acct, accountsByAccId) {
+      // Build a readable name like "Payroll: Joe Salary" or just "Travel and Meetings"
+      const parts = [];
+      let current = acct;
+      let depth = 0;
+      while (current && depth < 5) {
+        parts.unshift(current.ACCOUNT_NAME);
+        const parentId = current.PARENT_ACCOUNT;
+        if (!parentId) break;
+        current = accountsByAccId[parentId];
+        depth++;
+      }
+      // Show last 2 levels with colon separator for readability
+      if (parts.length <= 2) return parts.join(': ');
+      return parts.slice(-2).join(': ');
+    }
+
+    function addRow(table, name, annual, ytdBudget, ytdActual, variance, isIncome) {
+      const row = table.insertRow();
+      const nameCell = row.insertCell(0);
+      const annualCell = row.insertCell(1);
+      const ytdBudgetCell = row.insertCell(2);
+      const ytdActualCell = row.insertCell(3);
+      const varianceCell = row.insertCell(4);
+      const pctCell = row.insertCell(5);
+
+      nameCell.textContent = name;
+      annualCell.textContent = fmt(annual);
+      ytdBudgetCell.textContent = fmt(ytdBudget);
+      ytdActualCell.textContent = fmt(ytdActual);
+      varianceCell.textContent = fmt(variance);
+      varianceCell.className = variance >= 0 ? 'favorable' : 'unfavorable';
+      pctCell.textContent = pct(ytdActual, annual);
+      pctCell.className = 'pct-cell';
+    }
+
+    function addTotalRow(table, label, annual, ytdBudget, ytdActual, variance, isIncome) {
+      const row = table.insertRow();
+      row.className = 'total-row';
+      const nameCell = row.insertCell(0);
+      const annualCell = row.insertCell(1);
+      const ytdBudgetCell = row.insertCell(2);
+      const ytdActualCell = row.insertCell(3);
+      const varianceCell = row.insertCell(4);
+      const pctCell = row.insertCell(5);
+
+      nameCell.textContent = label;
+      annualCell.textContent = fmt(annual);
+      ytdBudgetCell.textContent = fmt(ytdBudget);
+      ytdActualCell.textContent = fmt(ytdActual);
+      varianceCell.textContent = fmt(variance);
+      varianceCell.className = variance >= 0 ? 'favorable' : 'unfavorable';
+      pctCell.textContent = pct(ytdActual, annual);
+      pctCell.className = 'pct-cell';
+    }
+
+    loadData();
+  </script>
+</body>
+</html>
