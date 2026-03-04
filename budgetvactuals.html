@@ -69,10 +69,34 @@
     .summary-box .value { font-size: 18px; font-weight: bold; }
     .summary-box .sub { font-size: 11px; color: #999; margin-top: 2px; }
     #error-message { color: red; font-weight: bold; margin-top: 10px; text-align: center; font-size: 14px; }
+    #controls-bar {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      margin-bottom: 18px;
+      align-items: center;
+    }
+    #controls-bar label {
+      font-size: 13px;
+      color: #555;
+      font-weight: bold;
+    }
+    #controls-bar select {
+      font-family: Georgia, serif;
+      font-size: 13px;
+      padding: 4px 8px;
+      border: 1px solid #bbb;
+      border-radius: 3px;
+      background: #fff;
+      color: #333;
+      cursor: pointer;
+    }
+    #controls-bar select:hover { border-color: #888; }
     @media print {
       #bva-widget { margin: 10px; }
       .summary-box .value { font-size: 16px; }
       .toggle { display: none; }
+      #controls-bar { display: none; }
     }
     @media (max-width: 600px) {
       .bva-table { font-size: 11px; }
@@ -87,6 +111,26 @@
       <span class="line2">Budget vs Actuals</span>
       <span class="line3" id="subtitle"></span>
     </h2>
+
+    <div id="controls-bar">
+      <label for="year-select">Year:</label>
+      <select id="year-select"></select>
+      <label for="month-select">Through:</label>
+      <select id="month-select">
+        <option value="1">January</option>
+        <option value="2">February</option>
+        <option value="3">March</option>
+        <option value="4">April</option>
+        <option value="5">May</option>
+        <option value="6">June</option>
+        <option value="7">July</option>
+        <option value="8">August</option>
+        <option value="9">September</option>
+        <option value="10">October</option>
+        <option value="11">November</option>
+        <option value="12">December</option>
+      </select>
+    </div>
 
     <div class="section">
       <h3>Income</h3>
@@ -144,6 +188,14 @@
     var MONTH_COLS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     var MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
+    // --- MODULE-LEVEL RAW DATA ---
+    var rawBudgetRecords = [];
+    var rawTransRecords = [];
+    var accountsById = {};
+    var accountsByAccId = {};
+    var typeMap = {};
+    var generalClassId = 0, strategicClassId = 0;
+
     function fmt(amount) {
       var abs = Math.abs(amount);
       var str = abs.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
@@ -181,7 +233,6 @@
           child.style.display = '';
         } else {
           child.style.display = 'none';
-          // Recursively collapse any expanded grandchildren
           if (child.getAttribute('data-has-children') === 'true') {
             collapseDescendants(child.getAttribute('data-node-id'), tableId);
             var t = child.querySelector('.toggle');
@@ -190,7 +241,6 @@
         }
       }
 
-      // Update toggle indicator on the clicked parent
       var parentRow = table.querySelector('tr[data-node-id="' + nodeId + '"]');
       if (parentRow) {
         var toggle = parentRow.querySelector('.toggle');
@@ -211,6 +261,243 @@
       }
     }
 
+    // --- CLEAR TABLE (keep header row) ---
+    function clearTable(tableId) {
+      var table = document.getElementById(tableId);
+      while (table.rows.length > 1) {
+        table.deleteRow(table.rows.length - 1);
+      }
+    }
+
+    // --- POPULATE YEAR DROPDOWN ---
+    function populateYearDropdown() {
+      var yearSet = {};
+      rawBudgetRecords.forEach(function(b) { if (b.Year) yearSet[b.Year] = true; });
+      rawTransRecords.forEach(function(t) { if (t.Year_Posted) yearSet[t.Year_Posted] = true; });
+      var years = Object.keys(yearSet).map(Number).sort();
+      var select = document.getElementById('year-select');
+      select.innerHTML = '';
+      years.forEach(function(y) {
+        var opt = document.createElement('option');
+        opt.value = y;
+        opt.textContent = y;
+        select.appendChild(opt);
+      });
+      return years;
+    }
+
+    // --- RENDER REPORT FOR GIVEN YEAR/MONTH ---
+    function renderReport(year, throughMonth) {
+      clearTable('income-table');
+      clearTable('general-expense-table');
+      clearTable('strategic-expense-table');
+
+      document.getElementById('subtitle').textContent =
+        year + ' \u2014 Through ' + MONTH_NAMES[throughMonth - 1];
+
+      // --- BUDGET DATA (split by fund) ---
+      var budgetRecords = rawBudgetRecords.filter(function(b) { return b.Year === year; });
+      var generalBudgetMap = {}, strategicBudgetMap = {};
+      budgetRecords.forEach(function(b) {
+        var annual = 0, ytdBudget = 0;
+        MONTH_COLS.forEach(function(col, idx) {
+          var val = b[col] || 0;
+          annual += val;
+          if (idx < throughMonth) ytdBudget += val;
+        });
+        var fund = b.Fund || 0;
+        var map = (fund === strategicClassId) ? strategicBudgetMap : generalBudgetMap;
+        map[b.Account] = { annual: annual, ytdBudget: ytdBudget };
+      });
+
+      // --- ACTUALS DATA (split by class) ---
+      var generalActualsMap = {}, strategicActualsMap = {};
+      rawTransRecords.forEach(function(t) {
+        if (!t.Year_Posted || !t.Month_Posted) return;
+        if (t.Year_Posted !== year) return;
+        if (t.Month_Posted > throughMonth) return;
+        var amount = t.Amount || 0;
+        var accountRef = t.Account_Long_Name;
+        if (!accountRef) return;
+        var cls = t.Class2 || 0;
+        if (cls === strategicClassId) {
+          strategicActualsMap[accountRef] = (strategicActualsMap[accountRef] || 0) + amount;
+        } else {
+          generalActualsMap[accountRef] = (generalActualsMap[accountRef] || 0) + amount;
+        }
+      });
+
+      // --- REUSABLE TREE BUILDER ---
+      function buildTree(budgetMap, actualsMap) {
+        var treeNodes = {};
+
+        function ensureNode(accountRowId) {
+          if (treeNodes[accountRowId]) return treeNodes[accountRowId];
+          var acct = accountsById[accountRowId];
+          if (!acct) return null;
+          var typeName = typeMap[acct.ACCOUNT_TYPE];
+          if (!typeName || (typeName !== 'INCOME' && typeName !== 'EXPENSE')) return null;
+
+          var node = {
+            id: accountRowId, name: acct.ACCOUNT_NAME, typeName: typeName,
+            children: [], _childSet: {}, parentNodeId: null,
+            annual: 0, ytdBudget: 0, ytdActual: 0, isLeaf: true
+          };
+          treeNodes[accountRowId] = node;
+
+          if (acct.PARENT_ACCOUNT) {
+            var parent = accountsByAccId[acct.PARENT_ACCOUNT];
+            if (parent) {
+              var parentNode = ensureNode(parent.id);
+              if (parentNode && !parentNode._childSet[accountRowId]) {
+                parentNode.children.push(node);
+                parentNode._childSet[accountRowId] = true;
+                parentNode.isLeaf = false;
+                node.parentNodeId = parent.id;
+              }
+            }
+          }
+          return node;
+        }
+
+        Object.keys(budgetMap).forEach(function(id) { ensureNode(Number(id)); });
+        Object.keys(actualsMap).forEach(function(id) { ensureNode(Number(id)); });
+
+        Object.keys(budgetMap).forEach(function(id) {
+          var node = treeNodes[Number(id)];
+          if (node) { node.annual = budgetMap[Number(id)].annual; node.ytdBudget = budgetMap[Number(id)].ytdBudget; }
+        });
+        Object.keys(actualsMap).forEach(function(id) {
+          var node = treeNodes[Number(id)];
+          if (node) { node.ytdActual = actualsMap[Number(id)]; }
+        });
+
+        function rollUp(node) {
+          if (node.children.length === 0) return;
+          node.children.forEach(function(child) { rollUp(child); });
+          node.annual += node.children.reduce(function(s, c) { return s + c.annual; }, 0);
+          node.ytdBudget += node.children.reduce(function(s, c) { return s + c.ytdBudget; }, 0);
+          node.ytdActual += node.children.reduce(function(s, c) { return s + c.ytdActual; }, 0);
+        }
+
+        var roots = [];
+        Object.keys(treeNodes).forEach(function(id) {
+          if (!treeNodes[id].parentNodeId) roots.push(treeNodes[id]);
+        });
+        roots.forEach(function(r) { rollUp(r); });
+
+        function flattenTree(node, depth, parentId) {
+          var rows = [];
+          if (Math.abs(node.annual) < 0.005 && Math.abs(node.ytdBudget) < 0.005 && Math.abs(node.ytdActual) < 0.005) return rows;
+          var activeChildren = node.children.filter(function(c) {
+            return Math.abs(c.annual) >= 0.005 || Math.abs(c.ytdBudget) >= 0.005 || Math.abs(c.ytdActual) >= 0.005;
+          });
+          var hasChildren = activeChildren.length > 0;
+
+          rows.push({
+            nodeId: node.id, parentId: parentId, name: node.name,
+            annual: node.annual, ytdBudget: node.ytdBudget, ytdActual: node.ytdActual,
+            isLeaf: node.isLeaf, hasChildren: hasChildren, depth: depth
+          });
+          var sorted = activeChildren.slice().sort(function(a, b) { return a.name.localeCompare(b.name); });
+          sorted.forEach(function(child) {
+            rows.push.apply(rows, flattenTree(child, depth + 1, node.id));
+          });
+          return rows;
+        }
+
+        var incomeRoots = roots.filter(function(r) { return r.typeName === 'INCOME'; });
+        var expenseRoots = roots.filter(function(r) { return r.typeName === 'EXPENSE'; });
+        incomeRoots.sort(function(a, b) { return a.name.localeCompare(b.name); });
+        expenseRoots.sort(function(a, b) { return a.name.localeCompare(b.name); });
+
+        var incomeRows = [], expenseRows = [];
+        incomeRoots.forEach(function(r) { incomeRows.push.apply(incomeRows, flattenTree(r, 0, null)); });
+        expenseRoots.forEach(function(r) { expenseRows.push.apply(expenseRows, flattenTree(r, 0, null)); });
+
+        var totIncAnnual = 0, totIncYtdBgt = 0, totIncYtdAct = 0;
+        incomeRoots.forEach(function(r) { totIncAnnual += r.annual; totIncYtdBgt += r.ytdBudget; totIncYtdAct += r.ytdActual; });
+        var totExpAnnual = 0, totExpYtdBgt = 0, totExpYtdAct = 0;
+        expenseRoots.forEach(function(r) { totExpAnnual += r.annual; totExpYtdBgt += r.ytdBudget; totExpYtdAct += Math.abs(r.ytdActual); });
+
+        return {
+          incomeRows: incomeRows, expenseRows: expenseRows,
+          totIncAnnual: totIncAnnual, totIncYtdBgt: totIncYtdBgt, totIncYtdAct: totIncYtdAct,
+          totExpAnnual: totExpAnnual, totExpYtdBgt: totExpYtdBgt, totExpYtdAct: totExpYtdAct
+        };
+      }
+
+      var genTree = buildTree(generalBudgetMap, generalActualsMap);
+      var stratTree = buildTree(strategicBudgetMap, strategicActualsMap);
+
+      // --- RENDER TABLES ---
+      var incomeTable = document.getElementById('income-table');
+      genTree.incomeRows.forEach(function(row) {
+        var variance = row.ytdActual - row.ytdBudget;
+        addRow(incomeTable, 'income-table', row, row.annual, row.ytdBudget, row.ytdActual, variance, true);
+      });
+      addTotalRow(incomeTable, 'Total Income',
+        genTree.totIncAnnual, genTree.totIncYtdBgt, genTree.totIncYtdAct,
+        genTree.totIncYtdAct - genTree.totIncYtdBgt, true);
+
+      var genExpTable = document.getElementById('general-expense-table');
+      genTree.expenseRows.forEach(function(row) {
+        var actual = Math.abs(row.ytdActual);
+        addRow(genExpTable, 'general-expense-table', row, row.annual, row.ytdBudget, actual, row.ytdBudget - actual, false);
+      });
+      addTotalRow(genExpTable, 'Total General Fund Expenses',
+        genTree.totExpAnnual, genTree.totExpYtdBgt, genTree.totExpYtdAct,
+        genTree.totExpYtdBgt - genTree.totExpYtdAct, false);
+
+      var stratExpTable = document.getElementById('strategic-expense-table');
+      stratTree.expenseRows.forEach(function(row) {
+        var actual = Math.abs(row.ytdActual);
+        addRow(stratExpTable, 'strategic-expense-table', row, row.annual, row.ytdBudget, actual, row.ytdBudget - actual, false);
+      });
+      if (stratTree.expenseRows.length === 0) {
+        var emptyRow = stratExpTable.insertRow();
+        var emptyCell = emptyRow.insertCell(0);
+        emptyCell.colSpan = 6;
+        emptyCell.textContent = 'No strategic fund expenses yet';
+        emptyCell.style.textAlign = 'center';
+        emptyCell.style.color = '#999';
+        emptyCell.style.fontStyle = 'italic';
+      }
+      addTotalRow(stratExpTable, 'Total Strategic Fund Expenses',
+        stratTree.totExpAnnual, stratTree.totExpYtdBgt, stratTree.totExpYtdAct,
+        stratTree.totExpYtdBgt - stratTree.totExpYtdAct, false);
+
+      // --- SUMMARY ---
+      var netBudget = genTree.totIncAnnual - genTree.totExpAnnual;
+      var netActual = genTree.totIncYtdAct - genTree.totExpYtdAct;
+
+      document.getElementById('net-budget').textContent = fmt(netBudget);
+      document.getElementById('net-budget').className = 'value ' + (netBudget >= 0 ? 'favorable' : 'unfavorable');
+      document.getElementById('net-actual').textContent = fmt(netActual);
+      document.getElementById('net-actual').className = 'value ' + (netActual >= 0 ? 'favorable' : 'unfavorable');
+      document.getElementById('net-actual-sub').textContent = 'Through ' + MONTH_NAMES[throughMonth - 1];
+
+      // --- FUND BALANCES (cumulative through selected year/month) ---
+      var generalBalance = 0, strategicBalance = 0;
+      rawTransRecords.forEach(function(t) {
+        if (!t.Year_Posted || !t.Month_Posted) return;
+        if (t.Year_Posted > year) return;
+        if (t.Year_Posted === year && t.Month_Posted > throughMonth) return;
+        var cls = t.Class2 || 0;
+        var amount = t.Amount || 0;
+        if (cls === strategicClassId) { strategicBalance += amount; }
+        else { generalBalance += amount; }
+      });
+
+      document.getElementById('general-fund').textContent = fmt(generalBalance);
+      document.getElementById('general-fund').className = 'value ' + (generalBalance >= 0 ? 'favorable' : 'unfavorable');
+      document.getElementById('general-fund-sub').textContent = 'Through ' + MONTH_NAMES[throughMonth - 1] + ' ' + year;
+      document.getElementById('strategic-fund').textContent = fmt(strategicBalance);
+      document.getElementById('strategic-fund').className = 'value ' + (strategicBalance >= 0 ? 'favorable' : 'unfavorable');
+      document.getElementById('strategic-fund-sub').textContent = 'Through ' + MONTH_NAMES[throughMonth - 1] + ' ' + year;
+    }
+
+    // --- LOAD DATA (fetch once, then render) ---
     async function loadData() {
       var errorEl = document.getElementById('error-message');
       try {
@@ -230,232 +517,57 @@
         document.getElementById('orgName').textContent = orgName;
 
         var classRecords = convertToRecords(classData);
-        var generalClassId = 0, strategicClassId = 0;
         classRecords.forEach(function(c) {
           if (c.Class_Name === 'General') generalClassId = c.id;
           if (c.Class_Name === 'Strategic') strategicClassId = c.id;
         });
 
         var typeRecords = convertToRecords(typeData);
-        var typeMap = {};
         typeRecords.forEach(function(r) { typeMap[r.id] = r.TYPE_NAME; });
 
         var accRecords = convertToRecords(accData);
-        var accountsById = {}, accountsByAccId = {};
         accRecords.forEach(function(r) {
           accountsById[r.id] = r;
           if (r.ACCOUNT_ID) accountsByAccId[r.ACCOUNT_ID] = r;
         });
 
+        rawBudgetRecords = convertToRecords(budgetData);
+        rawTransRecords = convertToRecords(transData);
+
+        // Populate year dropdown and set defaults
         var now = new Date();
-        var year = now.getFullYear();
+        var currentYear = now.getFullYear();
         var currentMonth = now.getMonth() + 1;
-        document.getElementById('subtitle').textContent =
-          year + ' \u2014 Through ' + MONTH_NAMES[currentMonth - 1];
+        var years = populateYearDropdown();
 
-        // --- BUDGET DATA (split by fund) ---
-        var budgetRecords = convertToRecords(budgetData).filter(function(b) { return b.Year === year; });
-        var generalBudgetMap = {}, strategicBudgetMap = {};
-        budgetRecords.forEach(function(b) {
-          var annual = 0, ytdBudget = 0;
-          MONTH_COLS.forEach(function(col, idx) {
-            var val = b[col] || 0;
-            annual += val;
-            if (idx < currentMonth) ytdBudget += val;
-          });
-          var fund = b.Fund || 0;
-          var map = (fund === strategicClassId) ? strategicBudgetMap : generalBudgetMap;
-          map[b.Account] = { annual: annual, ytdBudget: ytdBudget };
-        });
+        var yearSelect = document.getElementById('year-select');
+        var monthSelect = document.getElementById('month-select');
 
-        // --- ACTUALS DATA (split by class) ---
-        var transRecords = convertToRecords(transData);
-        var generalActualsMap = {}, strategicActualsMap = {};
-        transRecords.forEach(function(t) {
-          if (!t.Year_Posted || !t.Month_Posted) return;
-          if (t.Year_Posted !== year) return;
-          if (t.Month_Posted > currentMonth) return;
-          var amount = t.Amount || 0;
-          var accountRef = t.Account_Long_Name;
-          if (!accountRef) return;
-          var cls = t.Class2 || 0;
-          if (cls === strategicClassId) {
-            strategicActualsMap[accountRef] = (strategicActualsMap[accountRef] || 0) + amount;
-          } else {
-            generalActualsMap[accountRef] = (generalActualsMap[accountRef] || 0) + amount;
-          }
-        });
-
-        // --- REUSABLE TREE BUILDER ---
-        function buildTree(budgetMap, actualsMap) {
-          var treeNodes = {};
-
-          function ensureNode(accountRowId) {
-            if (treeNodes[accountRowId]) return treeNodes[accountRowId];
-            var acct = accountsById[accountRowId];
-            if (!acct) return null;
-            var typeName = typeMap[acct.ACCOUNT_TYPE];
-            if (!typeName || (typeName !== 'INCOME' && typeName !== 'EXPENSE')) return null;
-
-            var node = {
-              id: accountRowId, name: acct.ACCOUNT_NAME, typeName: typeName,
-              children: [], _childSet: {}, parentNodeId: null,
-              annual: 0, ytdBudget: 0, ytdActual: 0, isLeaf: true
-            };
-            treeNodes[accountRowId] = node;
-
-            if (acct.PARENT_ACCOUNT) {
-              var parent = accountsByAccId[acct.PARENT_ACCOUNT];
-              if (parent) {
-                var parentNode = ensureNode(parent.id);
-                if (parentNode && !parentNode._childSet[accountRowId]) {
-                  parentNode.children.push(node);
-                  parentNode._childSet[accountRowId] = true;
-                  parentNode.isLeaf = false;
-                  node.parentNodeId = parent.id;
-                }
-              }
-            }
-            return node;
-          }
-
-          Object.keys(budgetMap).forEach(function(id) { ensureNode(Number(id)); });
-          Object.keys(actualsMap).forEach(function(id) { ensureNode(Number(id)); });
-
-          Object.keys(budgetMap).forEach(function(id) {
-            var node = treeNodes[Number(id)];
-            if (node) { node.annual = budgetMap[Number(id)].annual; node.ytdBudget = budgetMap[Number(id)].ytdBudget; }
-          });
-          Object.keys(actualsMap).forEach(function(id) {
-            var node = treeNodes[Number(id)];
-            if (node) { node.ytdActual = actualsMap[Number(id)]; }
-          });
-
-          function rollUp(node) {
-            if (node.children.length === 0) return;
-            node.children.forEach(function(child) { rollUp(child); });
-            node.annual += node.children.reduce(function(s, c) { return s + c.annual; }, 0);
-            node.ytdBudget += node.children.reduce(function(s, c) { return s + c.ytdBudget; }, 0);
-            node.ytdActual += node.children.reduce(function(s, c) { return s + c.ytdActual; }, 0);
-          }
-
-          var roots = [];
-          Object.keys(treeNodes).forEach(function(id) {
-            if (!treeNodes[id].parentNodeId) roots.push(treeNodes[id]);
-          });
-          roots.forEach(function(r) { rollUp(r); });
-
-          // Flatten with parent tracking
-          function flattenTree(node, depth, parentId) {
-            var rows = [];
-            if (Math.abs(node.annual) < 0.005 && Math.abs(node.ytdBudget) < 0.005 && Math.abs(node.ytdActual) < 0.005) return rows;
-            var hasChildren = false;
-            var activeChildren = node.children.filter(function(c) {
-              return Math.abs(c.annual) >= 0.005 || Math.abs(c.ytdBudget) >= 0.005 || Math.abs(c.ytdActual) >= 0.005;
-            });
-            hasChildren = activeChildren.length > 0;
-
-            rows.push({
-              nodeId: node.id, parentId: parentId, name: node.name,
-              annual: node.annual, ytdBudget: node.ytdBudget, ytdActual: node.ytdActual,
-              isLeaf: node.isLeaf, hasChildren: hasChildren, depth: depth
-            });
-            var sorted = activeChildren.slice().sort(function(a, b) { return a.name.localeCompare(b.name); });
-            sorted.forEach(function(child) {
-              rows.push.apply(rows, flattenTree(child, depth + 1, node.id));
-            });
-            return rows;
-          }
-
-          var incomeRoots = roots.filter(function(r) { return r.typeName === 'INCOME'; });
-          var expenseRoots = roots.filter(function(r) { return r.typeName === 'EXPENSE'; });
-          incomeRoots.sort(function(a, b) { return a.name.localeCompare(b.name); });
-          expenseRoots.sort(function(a, b) { return a.name.localeCompare(b.name); });
-
-          var incomeRows = [], expenseRows = [];
-          incomeRoots.forEach(function(r) { incomeRows.push.apply(incomeRows, flattenTree(r, 0, null)); });
-          expenseRoots.forEach(function(r) { expenseRows.push.apply(expenseRows, flattenTree(r, 0, null)); });
-
-          var totIncAnnual = 0, totIncYtdBgt = 0, totIncYtdAct = 0;
-          incomeRoots.forEach(function(r) { totIncAnnual += r.annual; totIncYtdBgt += r.ytdBudget; totIncYtdAct += r.ytdActual; });
-          var totExpAnnual = 0, totExpYtdBgt = 0, totExpYtdAct = 0;
-          expenseRoots.forEach(function(r) { totExpAnnual += r.annual; totExpYtdBgt += r.ytdBudget; totExpYtdAct += Math.abs(r.ytdActual); });
-
-          return {
-            incomeRows: incomeRows, expenseRows: expenseRows,
-            totIncAnnual: totIncAnnual, totIncYtdBgt: totIncYtdBgt, totIncYtdAct: totIncYtdAct,
-            totExpAnnual: totExpAnnual, totExpYtdBgt: totExpYtdBgt, totExpYtdAct: totExpYtdAct
-          };
+        // Default to current year if available, otherwise last available year
+        if (years.indexOf(currentYear) !== -1) {
+          yearSelect.value = currentYear;
+          monthSelect.value = currentMonth;
+        } else if (years.length > 0) {
+          yearSelect.value = years[years.length - 1];
+          monthSelect.value = 12;
         }
 
-        var genTree = buildTree(generalBudgetMap, generalActualsMap);
-        var stratTree = buildTree(strategicBudgetMap, strategicActualsMap);
-
-        // --- RENDER ---
-        var incomeTable = document.getElementById('income-table');
-        genTree.incomeRows.forEach(function(row) {
-          var variance = row.ytdActual - row.ytdBudget;
-          addRow(incomeTable, 'income-table', row, row.annual, row.ytdBudget, row.ytdActual, variance, true);
+        // Wire up change handlers
+        yearSelect.addEventListener('change', function() {
+          var selectedYear = Number(yearSelect.value);
+          if (selectedYear === currentYear) {
+            monthSelect.value = currentMonth;
+          } else if (selectedYear < currentYear) {
+            monthSelect.value = 12;
+          }
+          renderReport(selectedYear, Number(monthSelect.value));
         });
-        addTotalRow(incomeTable, 'Total Income',
-          genTree.totIncAnnual, genTree.totIncYtdBgt, genTree.totIncYtdAct,
-          genTree.totIncYtdAct - genTree.totIncYtdBgt, true);
-
-        var genExpTable = document.getElementById('general-expense-table');
-        genTree.expenseRows.forEach(function(row) {
-          var actual = Math.abs(row.ytdActual);
-          addRow(genExpTable, 'general-expense-table', row, row.annual, row.ytdBudget, actual, row.ytdBudget - actual, false);
-        });
-        addTotalRow(genExpTable, 'Total General Fund Expenses',
-          genTree.totExpAnnual, genTree.totExpYtdBgt, genTree.totExpYtdAct,
-          genTree.totExpYtdBgt - genTree.totExpYtdAct, false);
-
-        var stratExpTable = document.getElementById('strategic-expense-table');
-        stratTree.expenseRows.forEach(function(row) {
-          var actual = Math.abs(row.ytdActual);
-          addRow(stratExpTable, 'strategic-expense-table', row, row.annual, row.ytdBudget, actual, row.ytdBudget - actual, false);
-        });
-        if (stratTree.expenseRows.length === 0) {
-          var emptyRow = stratExpTable.insertRow();
-          var emptyCell = emptyRow.insertCell(0);
-          emptyCell.colSpan = 6;
-          emptyCell.textContent = 'No strategic fund expenses yet';
-          emptyCell.style.textAlign = 'center';
-          emptyCell.style.color = '#999';
-          emptyCell.style.fontStyle = 'italic';
-        }
-        addTotalRow(stratExpTable, 'Total Strategic Fund Expenses',
-          stratTree.totExpAnnual, stratTree.totExpYtdBgt, stratTree.totExpYtdAct,
-          stratTree.totExpYtdBgt - stratTree.totExpYtdAct, false);
-
-        // --- SUMMARY ---
-        var netBudget = genTree.totIncAnnual - genTree.totExpAnnual;
-        var netActual = genTree.totIncYtdAct - genTree.totExpYtdAct;
-
-        document.getElementById('net-budget').textContent = fmt(netBudget);
-        document.getElementById('net-budget').className = 'value ' + (netBudget >= 0 ? 'favorable' : 'unfavorable');
-        document.getElementById('net-actual').textContent = fmt(netActual);
-        document.getElementById('net-actual').className = 'value ' + (netActual >= 0 ? 'favorable' : 'unfavorable');
-        document.getElementById('net-actual-sub').textContent = 'Through ' + MONTH_NAMES[currentMonth - 1];
-
-        // --- FUND BALANCES ---
-        var generalBalance = 0, strategicBalance = 0;
-        transRecords.forEach(function(t) {
-          if (!t.Year_Posted || !t.Month_Posted) return;
-          if (t.Year_Posted > year) return;
-          if (t.Year_Posted === year && t.Month_Posted > currentMonth) return;
-          var cls = t.Class2 || 0;
-          var amount = t.Amount || 0;
-          if (cls === strategicClassId) { strategicBalance += amount; }
-          else { generalBalance += amount; }
+        monthSelect.addEventListener('change', function() {
+          renderReport(Number(yearSelect.value), Number(monthSelect.value));
         });
 
-        document.getElementById('general-fund').textContent = fmt(generalBalance);
-        document.getElementById('general-fund').className = 'value ' + (generalBalance >= 0 ? 'favorable' : 'unfavorable');
-        document.getElementById('general-fund-sub').textContent = 'Through ' + MONTH_NAMES[currentMonth - 1] + ' ' + year;
-        document.getElementById('strategic-fund').textContent = fmt(strategicBalance);
-        document.getElementById('strategic-fund').className = 'value ' + (strategicBalance >= 0 ? 'favorable' : 'unfavorable');
-        document.getElementById('strategic-fund-sub').textContent = 'Through ' + MONTH_NAMES[currentMonth - 1] + ' ' + year;
+        // Initial render
+        renderReport(Number(yearSelect.value), Number(monthSelect.value));
 
       } catch (err) {
         console.error('Error loading data:', err);
@@ -467,14 +579,12 @@
       var tr = table.insertRow();
       var indent = 8 + (rowData.depth * 20);
 
-      // Data attributes for toggle
       tr.setAttribute('data-node-id', rowData.nodeId);
       if (rowData.parentId !== null) {
         tr.setAttribute('data-parent-node', rowData.parentId);
       }
       tr.setAttribute('data-has-children', rowData.hasChildren ? 'true' : 'false');
 
-      // Style based on parent/leaf
       if (rowData.hasChildren) {
         tr.className = rowData.depth === 0 ? 'parent-row' : 'parent-row-deep';
         tr.onclick = function() { toggleChildren(rowData.nodeId, tableId); };
@@ -482,7 +592,6 @@
         tr.className = 'leaf-row';
       }
 
-      // Hide child rows by default (depth > 0)
       if (rowData.parentId !== null) {
         tr.style.display = 'none';
       }
@@ -494,7 +603,6 @@
       var varianceCell = tr.insertCell(4);
       var pctCell = tr.insertCell(5);
 
-      // Toggle arrow + name
       var nameHtml = '';
       if (rowData.hasChildren) {
         nameHtml = '<span class="toggle">\u25B6 </span>' + rowData.name;
