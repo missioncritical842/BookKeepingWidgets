@@ -226,8 +226,7 @@
         var now = new Date();
         var currentYear = now.getFullYear();
         var liveYear = currentYear - 1; // 2025 (previous year, pulled from transactions)
-        var startYear = liveYear - 5;   // 2020 (oldest year shown, reference only)
-        var fiveYrStart = liveYear - 4; // 2021 (start of 5-year window)
+        var startYear = liveYear - 4;   // 2021 (start of 5-year window)
 
         // Map each historical year to column name in Public_Support_History (Y20XX)
         var histYearCols = {};
@@ -311,7 +310,7 @@
         Object.keys(donors).forEach(function(key) {
           var d = donors[key];
           var fiveYrTotal = 0;
-          for (var y = fiveYrStart; y <= liveYear; y++) {
+          for (var y = startYear; y <= liveYear; y++) {
             fiveYrTotal += (d.years[y] || 0);
           }
           if (fiveYrTotal === 0) {
@@ -356,7 +355,7 @@
               val = g[col] || 0;
             }
             row.years[y] = val;
-            if (y >= fiveYrStart) {
+            if (y >= startYear) {
               row.fiveYrTotal += val;
             }
             grossYearTotals[y] += val;
