@@ -162,20 +162,12 @@
         var histRecords = convertToRecords(histData);
         var transRecords = convertToRecords(transData);
 
-        // Determine the current year — the "live" year is the most recent year
+        // Report is through end of previous year
         var now = new Date();
         var currentYear = now.getFullYear();
-        // The test covers 5 years ending with the previous year's end
-        // But the image as of 12/31/2024 shows 2019-2024 with 5yr total = 2020-2024
-        // So: reference year = currentYear - 6, display years = (currentYear-5) to currentYear-1
-        // But the user said "for 2025 it should include..." so the live year IS currentYear
-        // Let's show 6 columns: (currentYear-5) through currentYear
-        // 5-year total = (currentYear-4) through currentYear
-        // Reference year (shown but not in 5yr total) = currentYear-5
-
-        var liveYear = currentYear; // 2025 is the live year pulling from transactions
-        var startYear = currentYear - 5; // oldest year shown (reference, not in 5yr total)
-        var fiveYrStart = currentYear - 4; // start of 5-year window
+        var liveYear = currentYear - 1; // 2025 (previous year, pulled from transactions)
+        var startYear = liveYear - 5;   // 2020 (oldest year shown, reference only)
+        var fiveYrStart = liveYear - 4; // 2021 (start of 5-year window)
 
         // The Public_Support_History has columns Y2019-Y2024
         // Map each year to the column name
@@ -292,7 +284,7 @@
         });
 
         // Update UI
-        document.getElementById('subtitle').textContent = 'As of 12/31/' + (liveYear);
+        document.getElementById('subtitle').textContent = 'As of 12/31/' + liveYear;
         document.getElementById('threshold-value').textContent = '$' + threshold.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
         // Build table
