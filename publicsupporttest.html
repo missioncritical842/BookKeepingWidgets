@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Public Support Test</title>
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+  <style>
+    #pst-widget {
+      font-family: Georgia, serif;
+      margin: 20px;
+      font-size: 14px;
+      color: #333;
+    }
+    #pst-widget h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      line-height: 1.2;
+    }
+    #pst-widget h2 .line1 { display: block; font-size: 20px; font-weight: bold; }
+    #pst-widget h2 .line2 { display: block; font-size: 16px; font-weight: normal; color: #555; }
+    #pst-widget h2 .line3 { display: block; font-size: 14px; font-weight: normal; color: #777; }
+    .threshold-box {
+      margin-bottom: 15px;
+      font-size: 14px;
+    }
+    .threshold-box .label { font-weight: bold; }
+    .pst-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .pst-table th, .pst-table td {
+      border: 1px solid #ccc;
+      padding: 4px 8px;
+      vertical-align: middle;
+    }
+    .pst-table th {
+      background-color: #e6e6e6;
+      text-align: right;
+      font-size: 12px;
+    }
+    .pst-table th:first-child { text-align: left; }
+    .pst-table td { text-align: right; }
+    .pst-table td:first-child { text-align: left; }
+    .donor-row:nth-child(even) { background-color: #f9f9f9; }
+    .total-row {
+      font-weight: bold;
+      background-color: #e0e8f0;
+      border-top: 2px solid #999;
+    }
+    .no-data {
+      text-align: center;
+      color: #999;
+      font-style: italic;
+      padding: 20px;
+    }
+    #error-message { color: red; font-weight: bold; margin-top: 10px; text-align: center; font-size: 14px; }
+    @media print {
+      #pst-widget { margin: 10px; }
+    }
+    @media (max-width: 600px) {
+      .pst-table { font-size: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="pst-widget">
+    <h2>
+      <span class="line1" id="orgName">Organization</span>
+      <span class="line2">Public Support Test</span>
+      <span class="line3" id="subtitle"></span>
+    </h2>
+
+    <div class="threshold-box">
+      <span class="label">2% of Total Contributions:</span>
+      <span id="threshold-value"></span>
+    </div>
+
+    <table class="pst-table" id="pst-table">
+    </table>
+
+    <div id="error-message"></div>
+  </div>
+
+  <script>
+    grist.ready({ columns: [], requiredAccess: 'read table' });
+
+    var accountsById = {};
+    var individBizContribIds = {};
+
+    function buildIndividBizContribSet() {
+      var targetIds = {};
+      Object.keys(accountsById).forEach(function(id) {
+        if (accountsById[id].ACCOUNT_NAME === 'Individ, Business Contributions') {
+          targetIds[Number(id)] = true;
+        }
+      });
+      var accountsByAccId = {};
+      Object.keys(accountsById).forEach(function(id) {
+        var a = accountsById[id];
+        if (a.ACCOUNT_ID) accountsByAccId[a.ACCOUNT_ID] = a;
+      });
+      Object.keys(accountsById).forEach(function(id) {
+        var current = accountsById[id];
+        var seen = {};
+        while (current) {
+          if (targetIds[current.id]) { individBizContribIds[Number(id)] = true; break; }
+          var pid = current.PARENT_ACCOUNT;
+          if (!pid || seen[pid]) break;
+          seen[pid] = true;
+          current = accountsByAccId[pid] ? accountsById[Object.keys(accountsById).find(function(k) { return accountsById[k].ACCOUNT_ID === pid; })] : null;
+        }
+      });
+    }
+
+    function fmt(amount) {
+      if (amount === null || amount === undefined || amount === 0) return '';
+      var abs = Math.abs(amount);
+      var str = abs.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+      return amount < 0 ? '(' + str + ')' : str;
+    }
+
+    function convertToRecords(data) {
+      if (Array.isArray(data)) return data;
+      var numRows = data.id ? data.id.length : 0;
+      var columns = Object.keys(data);
+      var records = [];
+      for (var i = 0; i < numRows; i++) {
+        var record = { id: data.id[i] };
+        columns.forEach(function(col) { if (col !== 'id') record[col] = data[col][i]; });
+        records.push(record);
+      }
+      return records;
+    }
+
+    async function loadData() {
+      var errorEl = document.getElementById('error-message');
+      try {
+        var results = await Promise.all([
+          grist.docApi.fetchTable('Public_Support_History'),
+          grist.docApi.fetchTable('Transaction_Categorization'),
+          grist.docApi.fetchTable('People_Companies'),
+          grist.docApi.fetchTable('Accounts'),
+          grist.docApi.fetchTable('Organization_Settings')
+        ]);
+
+        var histData = results[0], transData = results[1], peopleData = results[2];
+        var accData = results[3], orgData = results[4];
+
+        var orgRecords = convertToRecords(orgData);
+        var orgName = (orgRecords.length > 0 && orgRecords[0].Org_Name) ? orgRecords[0].Org_Name : 'Organization';
+        document.getElementById('orgName').textContent = orgName;
+
+        var accRecords = convertToRecords(accData);
+        accRecords.forEach(function(r) { accountsById[r.id] = r; });
+        buildIndividBizContribSet();
+
+        var peopleRecords = convertToRecords(peopleData);
+        var peopleById = {};
+        peopleRecords.forEach(function(r) { peopleById[r.id] = r; });
+
+        var histRecords = convertToRecords(histData);
+        var transRecords = convertToRecords(transData);
+
+        // Determine the current year — the "live" year is the most recent year
+        var now = new Date();
+        var currentYear = now.getFullYear();
+        // The test covers 5 years ending with the previous year's end
+        // But the image as of 12/31/2024 shows 2019-2024 with 5yr total = 2020-2024
+        // So: reference year = currentYear - 6, display years = (currentYear-5) to currentYear-1
+        // But the user said "for 2025 it should include..." so the live year IS currentYear
+        // Let's show 6 columns: (currentYear-5) through currentYear
+        // 5-year total = (currentYear-4) through currentYear
+        // Reference year (shown but not in 5yr total) = currentYear-5
+
+        var liveYear = currentYear; // 2025 is the live year pulling from transactions
+        var startYear = currentYear - 5; // oldest year shown (reference, not in 5yr total)
+        var fiveYrStart = currentYear - 4; // start of 5-year window
+
+        // The Public_Support_History has columns Y2019-Y2024
+        // Map each year to the column name
+        var histYearCols = {};
+        for (var y = startYear; y < liveYear; y++) {
+          histYearCols[y] = 'Y' + y;
+        }
+
+        // Build donor map keyed by People_Companies row ID
+        // donors[personId] = { name: string, years: { year: amount } }
+        var donors = {};
+
+        // Process historical data
+        histRecords.forEach(function(h) {
+          var personId = h.Donor_Name; // Ref:People_Companies
+          if (!personId) return;
+          if (!donors[personId]) {
+            var person = peopleById[personId];
+            var name = person ? (person.Display_Name || (person.First_Name + ' ' + person.Last_Name)) : 'Unknown';
+            donors[personId] = { name: name, years: {} };
+          }
+          for (var y = startYear; y < liveYear; y++) {
+            var col = histYearCols[y];
+            if (h[col] && h[col] > 0) {
+              donors[personId].years[y] = (donors[personId].years[y] || 0) + h[col];
+            }
+          }
+        });
+
+        // Process live year (currentYear) from Transaction_Categorization
+        // Filter to Individ, Business Contributions
+        transRecords.forEach(function(t) {
+          if (t.Year_Posted !== liveYear) return;
+          var acctId = t.Account_Long_Name;
+          if (!acctId) return;
+          if (!individBizContribIds[acctId]) return;
+          var donorId = t.From_To;
+          var amount = t.Amount || 0;
+          if (amount === 0) return;
+
+          if (!donorId || donorId === 0) {
+            // No name category — use special key
+            if (!donors['noname']) {
+              donors['noname'] = { name: 'No Name', years: {} };
+            }
+            donors['noname'].years[liveYear] = (donors['noname'].years[liveYear] || 0) + amount;
+          } else {
+            if (!donors[donorId]) {
+              var person = peopleById[donorId];
+              var name = person ? (person.Display_Name || (person.First_Name + ' ' + person.Last_Name)) : 'Unknown';
+              donors[donorId] = { name: name, years: {} };
+            }
+            donors[donorId].years[liveYear] = (donors[donorId].years[liveYear] || 0) + amount;
+          }
+        });
+
+        // Build display rows
+        var allYears = [];
+        for (var y = startYear; y <= liveYear; y++) allYears.push(y);
+
+        var rows = [];
+        Object.keys(donors).forEach(function(key) {
+          var d = donors[key];
+          var fiveYrTotal = 0;
+          for (var y = fiveYrStart; y <= liveYear; y++) {
+            fiveYrTotal += (d.years[y] || 0);
+          }
+          // Include donor if they have any contributions
+          if (fiveYrTotal === 0) {
+            // Check if they have the reference year only
+            var hasAny = false;
+            allYears.forEach(function(yr) { if (d.years[yr]) hasAny = true; });
+            if (!hasAny) return;
+          }
+          rows.push({
+            name: d.name,
+            years: d.years,
+            fiveYrTotal: fiveYrTotal
+          });
+        });
+
+        // Sort alphabetically by name
+        rows.sort(function(a, b) { return a.name.localeCompare(b.name); });
+
+        // Compute grand total (5-year)
+        var grandTotal = 0;
+        rows.forEach(function(r) { grandTotal += r.fiveYrTotal; });
+
+        // 2% threshold
+        var threshold = grandTotal * 0.02;
+
+        // Compute excess for each donor
+        rows.forEach(function(r) {
+          if (r.fiveYrTotal > threshold) {
+            r.excess = r.fiveYrTotal - threshold;
+            r.excessRounded = Math.round(r.excess);
+          } else {
+            r.excess = 0;
+            r.excessRounded = 0;
+          }
+        });
+
+        // Column totals
+        var yearTotals = {};
+        allYears.forEach(function(y) { yearTotals[y] = 0; });
+        var totalExcess = 0;
+        var totalExcessRounded = 0;
+        rows.forEach(function(r) {
+          allYears.forEach(function(y) {
+            yearTotals[y] += (r.years[y] || 0);
+          });
+          totalExcess += r.excess;
+          totalExcessRounded += r.excessRounded;
+        });
+
+        // Update UI
+        document.getElementById('subtitle').textContent = 'As of 12/31/' + (liveYear);
+        document.getElementById('threshold-value').textContent = '$' + threshold.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+        // Build table
+        var table = document.getElementById('pst-table');
+        table.innerHTML = '';
+
+        // Header row
+        var thead = document.createElement('thead');
+        var hRow = document.createElement('tr');
+        var th0 = document.createElement('th');
+        th0.textContent = '';
+        hRow.appendChild(th0);
+        allYears.forEach(function(y) {
+          var th = document.createElement('th');
+          th.textContent = y;
+          hRow.appendChild(th);
+        });
+        ['Total 5 Yr\nContrib', 'Excess\nContr', 'Rounded'].forEach(function(label) {
+          var th = document.createElement('th');
+          th.textContent = label;
+          th.style.whiteSpace = 'pre-line';
+          hRow.appendChild(th);
+        });
+        thead.appendChild(hRow);
+        table.appendChild(thead);
+
+        // Body
+        var tbody = document.createElement('tbody');
+        rows.forEach(function(r) {
+          var tr = document.createElement('tr');
+          tr.className = 'donor-row';
+          var tdName = document.createElement('td');
+          tdName.textContent = r.name;
+          tdName.style.whiteSpace = 'nowrap';
+          tr.appendChild(tdName);
+          allYears.forEach(function(y) {
+            var td = document.createElement('td');
+            td.textContent = fmt(r.years[y] || 0);
+            tr.appendChild(td);
+          });
+          var tdTotal = document.createElement('td');
+          tdTotal.textContent = fmt(r.fiveYrTotal);
+          tr.appendChild(tdTotal);
+          var tdExcess = document.createElement('td');
+          tdExcess.textContent = fmt(r.excess);
+          tr.appendChild(tdExcess);
+          var tdRounded = document.createElement('td');
+          tdRounded.textContent = fmt(r.excessRounded);
+          tr.appendChild(tdRounded);
+          tbody.appendChild(tr);
+        });
+
+        // Total row
+        var totalTr = document.createElement('tr');
+        totalTr.className = 'total-row';
+        var tdLabel = document.createElement('td');
+        tdLabel.textContent = '';
+        totalTr.appendChild(tdLabel);
+        allYears.forEach(function(y) {
+          var td = document.createElement('td');
+          td.textContent = fmt(yearTotals[y]);
+          totalTr.appendChild(td);
+        });
+        var tdGrand = document.createElement('td');
+        tdGrand.textContent = fmt(grandTotal);
+        totalTr.appendChild(tdGrand);
+        var tdTotExcess = document.createElement('td');
+        tdTotExcess.textContent = fmt(totalExcess);
+        totalTr.appendChild(tdTotExcess);
+        var tdTotRounded = document.createElement('td');
+        tdTotRounded.textContent = fmt(totalExcessRounded);
+        totalTr.appendChild(tdTotRounded);
+        tbody.appendChild(totalTr);
+
+        table.appendChild(tbody);
+
+      } catch (err) {
+        console.error('Error loading data:', err);
+        errorEl.textContent = 'Error loading data: ' + err.message;
+      }
+    }
+
+    loadData();
+  </script>
+</body>
+</html>
