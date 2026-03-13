@@ -82,6 +82,20 @@
       font-size: 13px;
       margin: 4px 0;
     }
+    .result-warn {
+      background-color: #fff3cd;
+      border: 2px solid #ffc107;
+      color: #856404;
+    }
+    .results-container {
+      display: flex;
+      gap: 20px;
+      margin-top: 25px;
+    }
+    .results-container .result-box {
+      flex: 1;
+      margin-top: 0;
+    }
     .summary-table {
       margin-top: 20px;
       width: auto;
@@ -200,7 +214,7 @@
           grist.docApi.fetchTable('People_Companies'),
           grist.docApi.fetchTable('Accounts'),
           grist.docApi.fetchTable('Organization_Settings'),
-          grist.docApi.fetchTable('Gross_Receipts_Unrelated')
+          grist.docApi.fetchTable('Gross_Receipts_Related')
         ]);
 
         var histData = results[0], transData = results[1], peopleData = results[2];
@@ -234,7 +248,7 @@
           histYearCols[y] = 'Y' + y;
         }
 
-        // Map each year to column name in Gross_Receipts_Unrelated (c20XX)
+        // Map each year to column name in Gross_Receipts_Related (c20XX)
         var grossYearCols = {};
         for (var y = startYear; y <= liveYear; y++) {
           grossYearCols[y] = 'c' + y;
@@ -395,7 +409,8 @@
         // Public support = total contributions - total excess
         var publicSupport = grandTotalContrib - totalExcessRounded;
         var supportPct = totalSupport > 0 ? (publicSupport / totalSupport) * 100 : 0;
-        var passes = supportPct >= 33.333;
+        var passesAutomatic = supportPct >= 33.333;
+        var passesFacts = supportPct >= 10.0;
 
         // Update UI
         document.getElementById('subtitle').textContent = 'As of 12/31/' + liveYear;
@@ -473,7 +488,7 @@
         grHeader.className = 'section-header';
         var grTd = document.createElement('td');
         grTd.colSpan = numCols;
-        grTd.textContent = 'Gross Receipts of Unrelated Activities';
+        grTd.textContent = 'Gross Receipts of Related Activities';
         grHeader.appendChild(grTd);
         tbody.appendChild(grHeader);
 
@@ -511,12 +526,12 @@
         var sumTable = document.createElement('table');
         sumTable.className = 'summary-table';
         var summaryRows = [
-          ['Total Support (Line 11e + Line 12)', fmtAlways(totalSupport)],
           ['Total Contributions (5-Year)', fmtAlways(grandTotalContrib)],
-          ['Less: Excess Contributions', fmtAlways(totalExcessRounded)],
+          ['Gross Receipts of Related Activities (5-Year)', fmtAlways(grossFiveYrGrand)],
+          ['Total Support', fmtAlways(totalSupport)],
+          ['Less: Excess Contributions (over 2%)', fmtAlways(totalExcessRounded)],
           ['Public Support', fmtAlways(publicSupport)],
-          ['Public Support %', supportPct.toFixed(2) + '%'],
-          ['Required Threshold', '33.33%']
+          ['Public Support %', supportPct.toFixed(2) + '%']
         ];
         summaryRows.forEach(function(s) {
           var tr = document.createElement('tr');
@@ -531,20 +546,38 @@
         });
         summaryArea.appendChild(sumTable);
 
-        // Pass/Fail result
+        // Pass/Fail results — both tests
         var resultArea = document.getElementById('result-area');
         resultArea.innerHTML = '';
-        var resultBox = document.createElement('div');
-        resultBox.className = 'result-box ' + (passes ? 'result-pass' : 'result-fail');
-        var statusText = passes ? 'PASSES' : 'DOES NOT PASS';
-        resultBox.innerHTML =
-          '<div class="detail-line">Public Support Test (\u00A7170(b)(1)(A)(vi))</div>' +
-          '<span class="big-number">' + statusText + '</span>' +
-          '<div class="detail-line">Public Support: ' + fmtAlways(publicSupport) +
-          ' / Total Support: ' + fmtAlways(totalSupport) +
-          ' = <strong>' + supportPct.toFixed(2) + '%</strong></div>' +
-          '<div class="detail-line">(Must be at least 33.33% to qualify)</div>';
-        resultArea.appendChild(resultBox);
+        var container = document.createElement('div');
+        container.className = 'results-container';
+
+        // Test 1: Automatic 33⅓% test
+        var box1 = document.createElement('div');
+        var status1 = passesAutomatic ? 'PASSES' : 'DOES NOT PASS';
+        box1.className = 'result-box ' + (passesAutomatic ? 'result-pass' : 'result-fail');
+        box1.innerHTML =
+          '<div class="detail-line"><strong>Test 1: Automatic Qualification</strong></div>' +
+          '<div class="detail-line">\u00A7170(b)(1)(A)(vi)</div>' +
+          '<span class="big-number">' + status1 + '</span>' +
+          '<div class="detail-line">' + supportPct.toFixed(2) + '% of total support</div>' +
+          '<div class="detail-line">(Must be at least 33.33%)</div>';
+        container.appendChild(box1);
+
+        // Test 2: Facts & Circumstances 10% test
+        var box2 = document.createElement('div');
+        var status2 = passesFacts ? 'PASSES' : 'DOES NOT PASS';
+        var factsClass = passesFacts ? (passesAutomatic ? 'result-pass' : 'result-warn') : 'result-fail';
+        box2.className = 'result-box ' + factsClass;
+        box2.innerHTML =
+          '<div class="detail-line"><strong>Test 2: Facts &amp; Circumstances</strong></div>' +
+          '<div class="detail-line">\u00A7170(b)(1)(A)(vi) — 10% threshold</div>' +
+          '<span class="big-number">' + status2 + '</span>' +
+          '<div class="detail-line">' + supportPct.toFixed(2) + '% of total support</div>' +
+          '<div class="detail-line">(Must be at least 10%, plus qualifying factors)</div>';
+        container.appendChild(box2);
+
+        resultArea.appendChild(container);
 
       } catch (err) {
         console.error('Error loading data:', err);
