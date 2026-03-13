@@ -430,6 +430,12 @@
         // Per-payer cap: greater of $5,000 or 1% of total support
         var capAmount = Math.max(5000, totalSupport509 * 0.01);
 
+        // Cap contributions per donor (5-year totals)
+        var cappedContribTotal = 0;
+        rows.forEach(function(r) {
+          cappedContribTotal += Math.min(r.fiveYrTotal, capAmount);
+        });
+
         // Capped gross receipts for live year
         // Per-payer cap only applies to tuition; product sales have many small payers
         var liveCappedTuition = 0;
@@ -439,12 +445,11 @@
         var liveCappedGross = liveCappedTuition + liveGrossProductSales;
 
         // Historical gross receipts: no per-payer data, use totals as-is
-        // (conservative: if any single payer exceeded cap historically, this overstates)
         var historicalGross = grossFiveYrGrand - liveGrossTuition - liveGrossProductSales;
         var cappedGrossTotal = historicalGross + liveCappedGross;
 
-        // 509(a)(2) numerator: contributions (no 2% reduction) + capped gross receipts
-        var publicSupport509 = grandTotalContrib + cappedGrossTotal;
+        // 509(a)(2) numerator: capped contributions + capped gross receipts
+        var publicSupport509 = cappedContribTotal + cappedGrossTotal;
 
         var pct509support = totalSupport509 > 0 ? (publicSupport509 / totalSupport509) * 100 : 0;
         var pct509invest = totalSupport509 > 0 ? (totalInvestmentIncome / totalSupport509) * 100 : 0;
@@ -605,9 +610,10 @@
           ['Gross Receipts — Uncapped', fmtAlways(grossFiveYrGrand)],
           ['Investment Income', fmtAlways(totalInvestmentIncome)],
           ['Total Support', fmtAlways(totalSupport509)],
-          ['Per-Payer Cap (greater of $5,000 or 1%)', fmtAlways(capAmount)],
+          ['Per-Source Cap (greater of $5,000 or 1%)', fmtAlways(capAmount)],
+          ['Contributions — Capped', fmtAlways(cappedContribTotal)],
           ['Gross Receipts — Capped', fmtAlways(cappedGrossTotal)],
-          ['Public Support (Contributions + Capped Gross)', fmtAlways(publicSupport509), true],
+          ['Public Support (Capped Contributions + Capped Gross)', fmtAlways(publicSupport509), true],
           ['Public Support %', pct509support.toFixed(2) + '%', true],
           ['Investment Income %', pct509invest.toFixed(2) + '%']
         ]);
