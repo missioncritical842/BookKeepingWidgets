@@ -129,11 +129,13 @@
 
     var accountsById = {};
     var individBizContribIds = {};
+    var educationServicesIds = {};
+    var productSalesIds = {};
 
-    function buildIndividBizContribSet() {
+    function buildAccountDescendantSet(rootName) {
       var targetIds = {};
       Object.keys(accountsById).forEach(function(id) {
-        if (accountsById[id].ACCOUNT_NAME === 'Individ, Business Contributions') {
+        if (accountsById[id].ACCOUNT_NAME === rootName) {
           targetIds[Number(id)] = true;
         }
       });
@@ -142,17 +144,25 @@
         var a = accountsById[id];
         if (a.ACCOUNT_ID) accountsByAccId[a.ACCOUNT_ID] = a;
       });
+      var result = {};
       Object.keys(accountsById).forEach(function(id) {
         var current = accountsById[id];
         var seen = {};
         while (current) {
-          if (targetIds[current.id]) { individBizContribIds[Number(id)] = true; break; }
+          if (targetIds[current.id]) { result[Number(id)] = true; break; }
           var pid = current.PARENT_ACCOUNT;
           if (!pid || seen[pid]) break;
           seen[pid] = true;
           current = accountsByAccId[pid] ? accountsById[Object.keys(accountsById).find(function(k) { return accountsById[k].ACCOUNT_ID === pid; })] : null;
         }
       });
+      return result;
+    }
+
+    function buildAccountSets() {
+      individBizContribIds = buildAccountDescendantSet('Individ, Business Contributions');
+      educationServicesIds = buildAccountDescendantSet('Education Services');
+      productSalesIds = buildAccountDescendantSet('Product Sales');
     }
 
     function fmt(amount) {
@@ -202,7 +212,7 @@
 
         var accRecords = convertToRecords(accData);
         accRecords.forEach(function(r) { accountsById[r.id] = r; });
-        buildIndividBizContribSet();
+        buildAccountSets();
 
         var peopleRecords = convertToRecords(peopleData);
         var peopleById = {};
@@ -252,14 +262,31 @@
         });
 
         // Process live year from Transaction_Categorization
+        // Also accumulate gross receipts for live year
+        var liveGrossTuition = 0;
+        var liveGrossProductSales = 0;
+
         transRecords.forEach(function(t) {
           if (t.Year_Posted !== liveYear) return;
           var acctId = t.Account_Long_Name;
           if (!acctId) return;
-          if (!individBizContribIds[acctId]) return;
-          var donorId = t.From_To;
           var amount = t.Amount || 0;
           if (amount === 0) return;
+
+          // Gross receipts: Education Services = "Tuition & Fees"
+          if (educationServicesIds[acctId]) {
+            liveGrossTuition += amount;
+            return;
+          }
+          // Gross receipts: Product Sales
+          if (productSalesIds[acctId]) {
+            liveGrossProductSales += amount;
+            return;
+          }
+
+          // Donor contributions: Individ, Business Contributions
+          if (!individBizContribIds[acctId]) return;
+          var donorId = t.From_To;
 
           if (!donorId || donorId === 0) {
             if (!donors['noname']) {
@@ -306,6 +333,12 @@
         rows.forEach(function(r) { grandTotalContrib += r.fiveYrTotal; });
 
         // Process Gross Receipts
+        // Map category names to live year transaction amounts
+        var liveGrossAmounts = {
+          'Tuition & Fees': liveGrossTuition,
+          'Product Sales': liveGrossProductSales
+        };
+
         var grossRows = [];
         var grossYearTotals = {};
         allYears.forEach(function(y) { grossYearTotals[y] = 0; });
@@ -314,8 +347,14 @@
         grossRecords.forEach(function(g) {
           var row = { category: g.Category, years: {}, fiveYrTotal: 0 };
           allYears.forEach(function(y) {
-            var col = grossYearCols[y];
-            var val = g[col] || 0;
+            var val;
+            if (y === liveYear) {
+              // Use live transaction data for the current reporting year
+              val = liveGrossAmounts[g.Category] || 0;
+            } else {
+              var col = grossYearCols[y];
+              val = g[col] || 0;
+            }
             row.years[y] = val;
             if (y >= fiveYrStart) {
               row.fiveYrTotal += val;
