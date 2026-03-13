@@ -3,7 +3,7 @@
 ## Repository Info
 - **GitHub**: https://github.com/missioncritical842/BookKeepingWidgets
 - **GitHub Pages**: https://missioncritical842.github.io/BookKeepingWidgets/
-- **Current Version**: v1.35
+- **Current Version**: v1.38
 
 ## Grist Documents Using These Widgets
 
@@ -16,19 +16,20 @@
 ## Widgets
 | Widget | GitHub Pages URL |
 |--------|------------------|
-| balancesheet.html | `https://missioncritical842.github.io/BookKeepingWidgets/balancesheet.html?v1.35` |
-| Form1096.html | `https://missioncritical842.github.io/BookKeepingWidgets/Form1096.html?v1.35` |
-| Form1099NEC.html | `https://missioncritical842.github.io/BookKeepingWidgets/Form1099NEC.html?v1.35` |
-| PayrollFilingsHelper.html | `https://missioncritical842.github.io/BookKeepingWidgets/PayrollFilingsHelper.html?v1.35` |
-| budgetvactuals.html | `https://missioncritical842.github.io/BookKeepingWidgets/budgetvactuals.html?v1.35` |
-| donationenvelopes.html | `https://missioncritical842.github.io/BookKeepingWidgets/donationenvelopes.html?v1.35` |
-| donationreceipts.html | `https://missioncritical842.github.io/BookKeepingWidgets/donationreceipts.html?v1.35` |
-| envelopes.html | `https://missioncritical842.github.io/BookKeepingWidgets/envelopes.html?v1.35` |
-| lastmonthpandl.html | `https://missioncritical842.github.io/BookKeepingWidgets/lastmonthpandl.html?v1.35` |
-| lastyearcashflow.html | `https://missioncritical842.github.io/BookKeepingWidgets/lastyearcashflow.html?v1.35` |
-| lastyearpandl.html | `https://missioncritical842.github.io/BookKeepingWidgets/lastyearpandl.html?v1.35` |
-| pandlalltime.html | `https://missioncritical842.github.io/BookKeepingWidgets/pandlalltime.html?v1.35` |
-| quarterlypandl.html | `https://missioncritical842.github.io/BookKeepingWidgets/quarterlypandl.html?v1.35` |
+| balancesheet.html | `https://missioncritical842.github.io/BookKeepingWidgets/balancesheet.html?v1.38` |
+| Form1096.html | `https://missioncritical842.github.io/BookKeepingWidgets/Form1096.html?v1.38` |
+| Form1099NEC.html | `https://missioncritical842.github.io/BookKeepingWidgets/Form1099NEC.html?v1.38` |
+| PayrollFilingsHelper.html | `https://missioncritical842.github.io/BookKeepingWidgets/PayrollFilingsHelper.html?v1.38` |
+| budgetvactuals.html | `https://missioncritical842.github.io/BookKeepingWidgets/budgetvactuals.html?v1.38` |
+| donorReport5k.html | `https://missioncritical842.github.io/BookKeepingWidgets/donorReport5k.html?v1.38` |
+| donationenvelopes.html | `https://missioncritical842.github.io/BookKeepingWidgets/donationenvelopes.html?v1.38` |
+| donationreceipts.html | `https://missioncritical842.github.io/BookKeepingWidgets/donationreceipts.html?v1.38` |
+| envelopes.html | `https://missioncritical842.github.io/BookKeepingWidgets/envelopes.html?v1.38` |
+| lastmonthpandl.html | `https://missioncritical842.github.io/BookKeepingWidgets/lastmonthpandl.html?v1.38` |
+| lastyearcashflow.html | `https://missioncritical842.github.io/BookKeepingWidgets/lastyearcashflow.html?v1.38` |
+| lastyearpandl.html | `https://missioncritical842.github.io/BookKeepingWidgets/lastyearpandl.html?v1.38` |
+| pandlalltime.html | `https://missioncritical842.github.io/BookKeepingWidgets/pandlalltime.html?v1.38` |
+| quarterlypandl.html | `https://missioncritical842.github.io/BookKeepingWidgets/quarterlypandl.html?v1.38` |
 
 ## Commit Requirements
 - **Always increment version number** in commit message (e.g., "Description of changes (v1.17)")

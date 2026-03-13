@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Donor Report - Over $5,000</title>
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+  <style>
+    #donor-widget {
+      font-family: Georgia, serif;
+      margin: 20px;
+      font-size: 14px;
+      color: #333;
+    }
+    #donor-widget h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      line-height: 1.2;
+    }
+    #donor-widget h2 .line1 { display: block; font-size: 20px; font-weight: bold; }
+    #donor-widget h2 .line2 { display: block; font-size: 16px; font-weight: normal; color: #555; }
+    #donor-widget h2 .line3 { display: block; font-size: 14px; font-weight: normal; color: #777; }
+    #controls-bar {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      margin-bottom: 18px;
+      align-items: center;
+    }
+    #controls-bar label {
+      font-size: 13px;
+      color: #555;
+      font-weight: bold;
+    }
+    #controls-bar select {
+      font-family: Georgia, serif;
+      font-size: 13px;
+      padding: 4px 8px;
+      border: 1px solid #bbb;
+      border-radius: 3px;
+      background: #fff;
+      color: #333;
+      cursor: pointer;
+    }
+    #controls-bar select:hover { border-color: #888; }
+    .donor-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .donor-table th, .donor-table td {
+      border: 1px solid #ccc;
+      padding: 6px 10px;
+      vertical-align: middle;
+    }
+    .donor-table th {
+      background-color: #e6e6e6;
+      text-align: left;
+      font-size: 13px;
+    }
+    .donor-table th:last-child { text-align: right; }
+    .donor-table td { font-size: 13px; }
+    .donor-table td:last-child { text-align: right; }
+    .donor-row:nth-child(even) { background-color: #f9f9f9; }
+    .total-row {
+      font-weight: bold;
+      background-color: #e0e8f0;
+      font-size: 14px;
+    }
+    .no-data {
+      text-align: center;
+      color: #999;
+      font-style: italic;
+      padding: 20px;
+    }
+    #error-message { color: red; font-weight: bold; margin-top: 10px; text-align: center; font-size: 14px; }
+    @media print {
+      #donor-widget { margin: 10px; }
+      #controls-bar { display: none; }
+    }
+    @media (max-width: 600px) {
+      .donor-table { font-size: 11px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="donor-widget">
+    <h2>
+      <span class="line1" id="orgName">Organization</span>
+      <span class="line2">Donors Contributing Over $5,000</span>
+      <span class="line3" id="subtitle"></span>
+    </h2>
+
+    <div id="controls-bar">
+      <label for="year-select">Year:</label>
+      <select id="year-select"></select>
+    </div>
+
+    <table class="donor-table" id="donor-table">
+      <tr><th>Name</th><th>Address</th><th>Contributions</th></tr>
+    </table>
+
+    <div id="error-message"></div>
+  </div>
+
+  <script>
+    grist.ready({ columns: [], requiredAccess: 'read table' });
+
+    var rawTransRecords = [];
+    var peopleById = {};
+    var accountsById = {};
+
+    function fmt(amount) {
+      var abs = Math.abs(amount);
+      var str = abs.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+      return amount < 0 ? '($' + str + ')' : '$' + str;
+    }
+
+    function convertToRecords(data) {
+      if (Array.isArray(data)) return data;
+      var numRows = data.id ? data.id.length : 0;
+      var columns = Object.keys(data);
+      var records = [];
+      for (var i = 0; i < numRows; i++) {
+        var record = { id: data.id[i] };
+        columns.forEach(function(col) { if (col !== 'id') record[col] = data[col][i]; });
+        records.push(record);
+      }
+      return records;
+    }
+
+    function clearTable() {
+      var table = document.getElementById('donor-table');
+      while (table.rows.length > 1) {
+        table.deleteRow(table.rows.length - 1);
+      }
+    }
+
+    function formatAddress(person) {
+      var parts = [];
+      if (person.Street1) parts.push(person.Street1);
+      if (person.Street2) parts.push(person.Street2);
+      var cityLine = '';
+      if (person.City) cityLine += person.City;
+      if (person.State) cityLine += (cityLine ? ', ' : '') + person.State;
+      if (person.Zip) cityLine += ' ' + person.Zip;
+      if (cityLine) parts.push(cityLine);
+      return parts.join(', ');
+    }
+
+    function populateYearDropdown() {
+      var yearSet = {};
+      rawTransRecords.forEach(function(t) {
+        if (t.Year_Posted) yearSet[t.Year_Posted] = true;
+      });
+      var years = Object.keys(yearSet).map(Number).sort();
+      var select = document.getElementById('year-select');
+      select.innerHTML = '';
+      years.forEach(function(y) {
+        var opt = document.createElement('option');
+        opt.value = y;
+        opt.textContent = y;
+        select.appendChild(opt);
+      });
+      return years;
+    }
+
+    function renderReport(year) {
+      clearTable();
+      document.getElementById('subtitle').textContent = 'Year ' + year;
+
+      // Sum income contributions by donor (From_To) for the selected year
+      var donorTotals = {};
+      rawTransRecords.forEach(function(t) {
+        if (t.Year_Posted !== year) return;
+        var acctId = t.Account_Long_Name;
+        if (!acctId) return;
+        var acct = accountsById[acctId];
+        if (!acct) return;
+        var typeId = acct.ACCOUNT_TYPE;
+        // Only INCOME accounts (types 1 and 8)
+        if (typeId !== 1 && typeId !== 8) return;
+        var donorId = t.From_To;
+        if (!donorId) return;
+        var amount = t.Amount || 0;
+        donorTotals[donorId] = (donorTotals[donorId] || 0) + amount;
+      });
+
+      // Filter for > $5,000 and build display rows
+      var rows = [];
+      Object.keys(donorTotals).forEach(function(donorId) {
+        var total = donorTotals[donorId];
+        if (total <= 5000) return;
+        var person = peopleById[Number(donorId)];
+        if (!person) return;
+        rows.push({
+          name: person.Display_Name || (person.First_Name + ' ' + person.Last_Name),
+          address: formatAddress(person),
+          total: total
+        });
+      });
+
+      // Sort by total descending
+      rows.sort(function(a, b) { return b.total - a.total; });
+
+      var table = document.getElementById('donor-table');
+
+      if (rows.length === 0) {
+        var tr = table.insertRow();
+        var td = tr.insertCell(0);
+        td.colSpan = 3;
+        td.className = 'no-data';
+        td.textContent = 'No donors contributed over $5,000 in ' + year;
+        return;
+      }
+
+      var grandTotal = 0;
+      rows.forEach(function(row) {
+        var tr = table.insertRow();
+        tr.className = 'donor-row';
+        tr.insertCell(0).textContent = row.name;
+        tr.insertCell(1).textContent = row.address;
+        var amtCell = tr.insertCell(2);
+        amtCell.textContent = fmt(row.total);
+        grandTotal += row.total;
+      });
+
+      // Total row
+      var totalTr = table.insertRow();
+      totalTr.className = 'total-row';
+      totalTr.insertCell(0).textContent = 'Total (' + rows.length + ' donor' + (rows.length !== 1 ? 's' : '') + ')';
+      totalTr.insertCell(1).textContent = '';
+      totalTr.insertCell(2).textContent = fmt(grandTotal);
+    }
+
+    async function loadData() {
+      var errorEl = document.getElementById('error-message');
+      try {
+        var results = await Promise.all([
+          grist.docApi.fetchTable('Transaction_Categorization'),
+          grist.docApi.fetchTable('People_Companies'),
+          grist.docApi.fetchTable('Accounts'),
+          grist.docApi.fetchTable('Organization_Settings')
+        ]);
+        var transData = results[0], peopleData = results[1];
+        var accData = results[2], orgData = results[3];
+
+        var orgRecords = convertToRecords(orgData);
+        var orgName = (orgRecords.length > 0 && orgRecords[0].Org_Name) ? orgRecords[0].Org_Name : 'Organization';
+        document.getElementById('orgName').textContent = orgName;
+
+        var accRecords = convertToRecords(accData);
+        accRecords.forEach(function(r) { accountsById[r.id] = r; });
+
+        var peopleRecords = convertToRecords(peopleData);
+        peopleRecords.forEach(function(r) { peopleById[r.id] = r; });
+
+        rawTransRecords = convertToRecords(transData);
+
+        // Populate year dropdown, default to previous year
+        var now = new Date();
+        var currentYear = now.getFullYear();
+        var prevYear = currentYear - 1;
+        var years = populateYearDropdown();
+
+        var yearSelect = document.getElementById('year-select');
+
+        if (years.indexOf(prevYear) !== -1) {
+          yearSelect.value = prevYear;
+        } else if (years.length > 0) {
+          yearSelect.value = years[years.length - 1];
+        }
+
+        yearSelect.addEventListener('change', function() {
+          renderReport(Number(yearSelect.value));
+        });
+
+        renderReport(Number(yearSelect.value));
+
+      } catch (err) {
+        console.error('Error loading data:', err);
+        errorEl.textContent = 'Error loading data: ' + err.message;
+      }
+    }
+
+    loadData();
+  </script>
+</body>
+</html>
