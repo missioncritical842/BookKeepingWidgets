@@ -56,7 +56,6 @@
     .section-header td { text-align: left !important; font-style: italic; }
     .gross-row:nth-child(even) { background-color: #f9f9f9; }
     .result-box {
-      margin-top: 25px;
       padding: 15px 20px;
       border-radius: 6px;
       font-size: 15px;
@@ -72,6 +71,11 @@
       border: 2px solid #dc3545;
       color: #721c24;
     }
+    .result-warn {
+      background-color: #fff3cd;
+      border: 2px solid #ffc107;
+      color: #856404;
+    }
     .result-box .big-number {
       font-size: 28px;
       font-weight: bold;
@@ -82,22 +86,26 @@
       font-size: 13px;
       margin: 4px 0;
     }
-    .result-warn {
-      background-color: #fff3cd;
-      border: 2px solid #ffc107;
-      color: #856404;
-    }
     .results-container {
       display: flex;
       gap: 20px;
       margin-top: 25px;
+      flex-wrap: wrap;
     }
     .results-container .result-box {
       flex: 1;
-      margin-top: 0;
+      min-width: 220px;
+    }
+    .summary-section {
+      margin-top: 25px;
+    }
+    .summary-section h3 {
+      font-size: 15px;
+      margin: 15px 0 8px 0;
+      border-bottom: 1px solid #ccc;
+      padding-bottom: 4px;
     }
     .summary-table {
-      margin-top: 20px;
       width: auto;
       border-collapse: collapse;
       font-size: 13px;
@@ -108,12 +116,14 @@
     }
     .summary-table td:last-child { text-align: right; }
     .summary-table .summary-label { font-weight: bold; }
+    .summary-table .summary-highlight { background-color: #e8f0fe; }
     #error-message { color: red; font-weight: bold; margin-top: 10px; text-align: center; font-size: 14px; }
     @media print {
       #pst-widget { margin: 10px; }
     }
     @media (max-width: 600px) {
       .pst-table { font-size: 10px; }
+      .results-container { flex-direction: column; }
     }
   </style>
 </head>
@@ -126,7 +136,7 @@
     </h2>
 
     <div class="threshold-box">
-      <span class="label">2% of Total Contributions:</span>
+      <span class="label">2% of Total Support:</span>
       <span id="threshold-value"></span>
     </div>
 
@@ -145,6 +155,7 @@
     var individBizContribIds = {};
     var educationServicesIds = {};
     var productSalesIds = {};
+    var investmentsIds = {};
 
     function buildAccountDescendantSet(rootName) {
       var targetIds = {};
@@ -177,6 +188,7 @@
       individBizContribIds = buildAccountDescendantSet('Individ, Business Contributions');
       educationServicesIds = buildAccountDescendantSet('Education Services');
       productSalesIds = buildAccountDescendantSet('Product Sales');
+      investmentsIds = buildAccountDescendantSet('Investments');
     }
 
     function fmt(amount) {
@@ -239,8 +251,8 @@
         // Report is through end of previous year
         var now = new Date();
         var currentYear = now.getFullYear();
-        var liveYear = currentYear - 1; // 2025 (previous year, pulled from transactions)
-        var startYear = liveYear - 4;   // 2021 (start of 5-year window)
+        var liveYear = currentYear - 1;
+        var startYear = liveYear - 4;
 
         // Map each historical year to column name in Public_Support_History (Y20XX)
         var histYearCols = {};
@@ -254,10 +266,10 @@
           grossYearCols[y] = 'c' + y;
         }
 
-        // Build donor map keyed by People_Companies row ID
+        // ========== CONTRIBUTIONS ==========
         var donors = {};
 
-        // Process historical data
+        // Process historical contribution data
         histRecords.forEach(function(h) {
           var personId = h.Donor_Name;
           if (!personId) return;
@@ -274,10 +286,14 @@
           }
         });
 
-        // Process live year from Transaction_Categorization
-        // Also accumulate gross receipts for live year
+        // ========== LIVE YEAR TRANSACTIONS ==========
         var liveGrossTuition = 0;
         var liveGrossProductSales = 0;
+        var liveInvestmentIncome = 0;
+
+        // For 509(a)(2): track gross receipts by payer for per-payer cap
+        // grossByPayer[category][payerId] = total amount
+        var grossByPayer = { tuition: {}, productSales: {} };
 
         transRecords.forEach(function(t) {
           if (t.Year_Posted !== liveYear) return;
@@ -285,38 +301,45 @@
           if (!acctId) return;
           var amount = t.Amount || 0;
           if (amount === 0) return;
+          var payerId = t.From_To || 0;
 
           // Gross receipts: Education Services = "Tuition & Fees"
           if (educationServicesIds[acctId]) {
             liveGrossTuition += amount;
+            grossByPayer.tuition[payerId] = (grossByPayer.tuition[payerId] || 0) + amount;
             return;
           }
           // Gross receipts: Product Sales
           if (productSalesIds[acctId]) {
             liveGrossProductSales += amount;
+            grossByPayer.productSales[payerId] = (grossByPayer.productSales[payerId] || 0) + amount;
+            return;
+          }
+          // Investment income
+          if (investmentsIds[acctId]) {
+            liveInvestmentIncome += amount;
             return;
           }
 
           // Donor contributions: Individ, Business Contributions
           if (!individBizContribIds[acctId]) return;
-          var donorId = t.From_To;
 
-          if (!donorId || donorId === 0) {
+          if (!payerId || payerId === 0) {
             if (!donors['noname']) {
               donors['noname'] = { name: 'No Name', years: {} };
             }
             donors['noname'].years[liveYear] = (donors['noname'].years[liveYear] || 0) + amount;
           } else {
-            if (!donors[donorId]) {
-              var person = peopleById[donorId];
+            if (!donors[payerId]) {
+              var person = peopleById[payerId];
               var name = person ? (person.Display_Name || (person.First_Name + ' ' + person.Last_Name)) : 'Unknown';
-              donors[donorId] = { name: name, years: {} };
+              donors[payerId] = { name: name, years: {} };
             }
-            donors[donorId].years[liveYear] = (donors[donorId].years[liveYear] || 0) + amount;
+            donors[payerId].years[liveYear] = (donors[payerId].years[liveYear] || 0) + amount;
           }
         });
 
-        // Build display rows
+        // ========== BUILD DONOR DISPLAY ROWS ==========
         var allYears = [];
         for (var y = startYear; y <= liveYear; y++) allYears.push(y);
 
@@ -332,21 +355,15 @@
             allYears.forEach(function(yr) { if (d.years[yr]) hasAny = true; });
             if (!hasAny) return;
           }
-          rows.push({
-            name: d.name,
-            years: d.years,
-            fiveYrTotal: fiveYrTotal
-          });
+          rows.push({ name: d.name, years: d.years, fiveYrTotal: fiveYrTotal });
         });
 
         rows.sort(function(a, b) { return a.name.localeCompare(b.name); });
 
-        // Grand total of contributions (5-year)
         var grandTotalContrib = 0;
         rows.forEach(function(r) { grandTotalContrib += r.fiveYrTotal; });
 
-        // Process Gross Receipts
-        // Map category names to live year transaction amounts
+        // ========== GROSS RECEIPTS (for display table) ==========
         var liveGrossAmounts = {
           'Tuition & Fees': liveGrossTuition,
           'Product Sales': liveGrossProductSales
@@ -362,30 +379,26 @@
           allYears.forEach(function(y) {
             var val;
             if (y === liveYear) {
-              // Use live transaction data for the current reporting year
               val = liveGrossAmounts[g.Category] || 0;
             } else {
               var col = grossYearCols[y];
               val = g[col] || 0;
             }
             row.years[y] = val;
-            if (y >= startYear) {
-              row.fiveYrTotal += val;
-            }
+            row.fiveYrTotal += val;
             grossYearTotals[y] += val;
           });
           grossFiveYrGrand += row.fiveYrTotal;
           grossRows.push(row);
         });
 
-        // 2% threshold is based on total support (contributions + gross receipts)
-        var totalSupport = grandTotalContrib + grossFiveYrGrand;
-        var threshold = totalSupport * 0.02;
+        // ========== 170(b)(1)(A)(vi) CALCULATION ==========
+        var totalSupport170 = grandTotalContrib + grossFiveYrGrand;
+        var threshold2pct = totalSupport170 * 0.02;
 
-        // Compute excess for each donor
         rows.forEach(function(r) {
-          if (r.fiveYrTotal > threshold) {
-            r.excess = r.fiveYrTotal - threshold;
+          if (r.fiveYrTotal > threshold2pct) {
+            r.excess = r.fiveYrTotal - threshold2pct;
             r.excessRounded = Math.round(r.excess);
           } else {
             r.excess = 0;
@@ -393,7 +406,6 @@
           }
         });
 
-        // Column totals for contributions
         var yearTotals = {};
         allYears.forEach(function(y) { yearTotals[y] = 0; });
         var totalExcess = 0;
@@ -406,35 +418,59 @@
           totalExcessRounded += r.excessRounded;
         });
 
-        // Public support = total contributions - total excess
-        var publicSupport = grandTotalContrib - totalExcessRounded;
-        var supportPct = totalSupport > 0 ? (publicSupport / totalSupport) * 100 : 0;
-        var passesAutomatic = supportPct >= 33.333;
-        var passesFacts = supportPct >= 10.0;
+        var publicSupport170 = grandTotalContrib - totalExcessRounded;
+        var pct170 = totalSupport170 > 0 ? (publicSupport170 / totalSupport170) * 100 : 0;
+        var passes170auto = pct170 >= 33.333;
+        var passes170facts = pct170 >= 10.0;
 
-        // Update UI
+        // ========== 509(a)(2) CALCULATION ==========
+        // Total support = contributions + gross receipts (uncapped) + investment income
+        var totalInvestmentIncome = liveInvestmentIncome; // only have live year data
+        var totalSupport509 = grandTotalContrib + grossFiveYrGrand + totalInvestmentIncome;
+
+        // Per-payer cap: greater of $5,000 or 1% of total support
+        var capAmount = Math.max(5000, totalSupport509 * 0.01);
+
+        // Capped gross receipts for live year (per payer)
+        var liveCappedTuition = 0;
+        Object.keys(grossByPayer.tuition).forEach(function(pid) {
+          liveCappedTuition += Math.min(grossByPayer.tuition[pid], capAmount);
+        });
+        var liveCappedProductSales = 0;
+        Object.keys(grossByPayer.productSales).forEach(function(pid) {
+          liveCappedProductSales += Math.min(grossByPayer.productSales[pid], capAmount);
+        });
+        var liveCappedGross = liveCappedTuition + liveCappedProductSales;
+
+        // Historical gross receipts: no per-payer data, use totals as-is
+        // (conservative: if any single payer exceeded cap historically, this overstates)
+        var historicalGross = grossFiveYrGrand - liveGrossTuition - liveGrossProductSales;
+        var cappedGrossTotal = historicalGross + liveCappedGross;
+
+        // 509(a)(2) numerator: contributions (no 2% reduction) + capped gross receipts
+        var publicSupport509 = grandTotalContrib + cappedGrossTotal;
+
+        var pct509support = totalSupport509 > 0 ? (publicSupport509 / totalSupport509) * 100 : 0;
+        var pct509invest = totalSupport509 > 0 ? (totalInvestmentIncome / totalSupport509) * 100 : 0;
+        var passes509support = pct509support >= 33.333;
+        var passes509invest = pct509invest <= 33.333;
+        var passes509 = passes509support && passes509invest;
+
+        // ========== RENDER UI ==========
         document.getElementById('subtitle').textContent = 'As of 12/31/' + liveYear;
-        document.getElementById('threshold-value').textContent = '$' + threshold.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('threshold-value').textContent = '$' + threshold2pct.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
-        // Build table
         var table = document.getElementById('pst-table');
         table.innerHTML = '';
-        var numCols = allYears.length + 4; // name + years + total + excess + rounded
+        var numCols = allYears.length + 4;
 
-        // Header row
+        // Header
         var thead = document.createElement('thead');
         var hRow = document.createElement('tr');
-        var th0 = document.createElement('th');
-        th0.textContent = '';
-        hRow.appendChild(th0);
-        allYears.forEach(function(y) {
-          var th = document.createElement('th');
-          th.textContent = y;
-          hRow.appendChild(th);
-        });
+        hRow.appendChild(makeTh('', true));
+        allYears.forEach(function(y) { hRow.appendChild(makeTh(y)); });
         ['Total 5 Yr\nContrib', 'Excess\nContr', 'Rounded'].forEach(function(label) {
-          var th = document.createElement('th');
-          th.textContent = label;
+          var th = makeTh(label);
           th.style.whiteSpace = 'pre-line';
           hRow.appendChild(th);
         });
@@ -447,14 +483,11 @@
         rows.forEach(function(r) {
           var tr = document.createElement('tr');
           tr.className = 'donor-row';
-          var tdName = document.createElement('td');
-          tdName.textContent = r.name;
+          var tdName = makeTd(r.name, true);
           tdName.style.whiteSpace = 'nowrap';
           tr.appendChild(tdName);
           allYears.forEach(function(y) {
-            var td = document.createElement('td');
-            td.textContent = fmt(r.years[y] || 0);
-            tr.appendChild(td);
+            tr.appendChild(makeTd(fmt(r.years[y] || 0)));
           });
           tr.appendChild(makeTd(fmt(r.fiveYrTotal)));
           tr.appendChild(makeTd(fmt(r.excess)));
@@ -462,19 +495,17 @@
           tbody.appendChild(tr);
         });
 
-        // Contributions total row
+        // Contributions total
         var totalTr = document.createElement('tr');
         totalTr.className = 'total-row';
         totalTr.appendChild(makeTd(''));
-        allYears.forEach(function(y) {
-          totalTr.appendChild(makeTd(fmt(yearTotals[y])));
-        });
+        allYears.forEach(function(y) { totalTr.appendChild(makeTd(fmt(yearTotals[y]))); });
         totalTr.appendChild(makeTd(fmt(grandTotalContrib)));
         totalTr.appendChild(makeTd(fmt(totalExcess)));
         totalTr.appendChild(makeTd(fmt(totalExcessRounded)));
         tbody.appendChild(totalTr);
 
-        // Spacer row
+        // Spacer
         var spacer = document.createElement('tr');
         var spacerTd = document.createElement('td');
         spacerTd.colSpan = numCols;
@@ -483,7 +514,7 @@
         spacer.appendChild(spacerTd);
         tbody.appendChild(spacer);
 
-        // Gross Receipts section header
+        // Gross Receipts header
         var grHeader = document.createElement('tr');
         grHeader.className = 'section-header';
         var grTd = document.createElement('td');
@@ -497,85 +528,132 @@
           var tr = document.createElement('tr');
           tr.className = 'gross-row';
           tr.appendChild(makeTd(g.category, true));
-          allYears.forEach(function(y) {
-            tr.appendChild(makeTd(fmt(g.years[y])));
-          });
+          allYears.forEach(function(y) { tr.appendChild(makeTd(fmt(g.years[y]))); });
           tr.appendChild(makeTd(fmt(g.fiveYrTotal)));
           tr.appendChild(makeTd(''));
           tr.appendChild(makeTd(''));
           tbody.appendChild(tr);
         });
 
-        // Gross receipts total row
+        // Gross receipts total
         var grTotalTr = document.createElement('tr');
         grTotalTr.className = 'total-row';
         grTotalTr.appendChild(makeTd(''));
-        allYears.forEach(function(y) {
-          grTotalTr.appendChild(makeTd(fmt(grossYearTotals[y])));
-        });
+        allYears.forEach(function(y) { grTotalTr.appendChild(makeTd(fmt(grossYearTotals[y]))); });
         grTotalTr.appendChild(makeTd(fmt(grossFiveYrGrand)));
         grTotalTr.appendChild(makeTd(''));
         grTotalTr.appendChild(makeTd(''));
         tbody.appendChild(grTotalTr);
 
+        // Investment income row
+        if (totalInvestmentIncome > 0) {
+          var invSpacer = document.createElement('tr');
+          var invSpacerTd = document.createElement('td');
+          invSpacerTd.colSpan = numCols;
+          invSpacerTd.style.height = '10px';
+          invSpacerTd.style.border = 'none';
+          invSpacer.appendChild(invSpacerTd);
+          tbody.appendChild(invSpacer);
+
+          var invHeader = document.createElement('tr');
+          invHeader.className = 'section-header';
+          var invHdrTd = document.createElement('td');
+          invHdrTd.colSpan = numCols;
+          invHdrTd.textContent = 'Investment Income';
+          invHeader.appendChild(invHdrTd);
+          tbody.appendChild(invHeader);
+
+          var invTr = document.createElement('tr');
+          invTr.className = 'gross-row';
+          invTr.appendChild(makeTd('Interest Income', true));
+          allYears.forEach(function(y) {
+            invTr.appendChild(makeTd(y === liveYear ? fmt(liveInvestmentIncome) : ''));
+          });
+          invTr.appendChild(makeTd(fmt(totalInvestmentIncome)));
+          invTr.appendChild(makeTd(''));
+          invTr.appendChild(makeTd(''));
+          tbody.appendChild(invTr);
+        }
+
         table.appendChild(tbody);
 
-        // Summary table
+        // ========== SUMMARY TABLES ==========
         var summaryArea = document.getElementById('summary-area');
         summaryArea.innerHTML = '';
-        var sumTable = document.createElement('table');
-        sumTable.className = 'summary-table';
-        var summaryRows = [
-          ['Total Contributions (5-Year)', fmtAlways(grandTotalContrib)],
-          ['Gross Receipts of Related Activities (5-Year)', fmtAlways(grossFiveYrGrand)],
-          ['Total Support', fmtAlways(totalSupport)],
-          ['Less: Excess Contributions (over 2%)', fmtAlways(totalExcessRounded)],
-          ['Public Support', fmtAlways(publicSupport)],
-          ['Public Support %', supportPct.toFixed(2) + '%']
-        ];
-        summaryRows.forEach(function(s) {
-          var tr = document.createElement('tr');
-          var td1 = document.createElement('td');
-          td1.className = 'summary-label';
-          td1.textContent = s[0];
-          tr.appendChild(td1);
-          var td2 = document.createElement('td');
-          td2.textContent = s[1];
-          tr.appendChild(td2);
-          sumTable.appendChild(tr);
-        });
-        summaryArea.appendChild(sumTable);
 
-        // Pass/Fail results — both tests
+        // --- 170(b)(1)(A)(vi) Summary ---
+        var sec1 = document.createElement('div');
+        sec1.className = 'summary-section';
+        var h3a = document.createElement('h3');
+        h3a.textContent = '\u00A7170(b)(1)(A)(vi) — Public Charity Test';
+        sec1.appendChild(h3a);
+        var sum1 = buildSummaryTable([
+          ['Total Contributions (5-Year)', fmtAlways(grandTotalContrib)],
+          ['Gross Receipts of Related Activities', fmtAlways(grossFiveYrGrand)],
+          ['Total Support', fmtAlways(totalSupport170)],
+          ['Less: Excess Contributions (over 2%)', fmtAlways(totalExcessRounded)],
+          ['Public Support', fmtAlways(publicSupport170), true],
+          ['Public Support %', pct170.toFixed(2) + '%', true]
+        ]);
+        sec1.appendChild(sum1);
+        summaryArea.appendChild(sec1);
+
+        // --- 509(a)(2) Summary ---
+        var sec2 = document.createElement('div');
+        sec2.className = 'summary-section';
+        var h3b = document.createElement('h3');
+        h3b.textContent = '\u00A7509(a)(2) — Gross Receipts Test';
+        sec2.appendChild(h3b);
+        var sum2 = buildSummaryTable([
+          ['Total Contributions (5-Year)', fmtAlways(grandTotalContrib)],
+          ['Gross Receipts — Uncapped', fmtAlways(grossFiveYrGrand)],
+          ['Investment Income', fmtAlways(totalInvestmentIncome)],
+          ['Total Support', fmtAlways(totalSupport509)],
+          ['Per-Payer Cap (greater of $5,000 or 1%)', fmtAlways(capAmount)],
+          ['Gross Receipts — Capped', fmtAlways(cappedGrossTotal)],
+          ['Public Support (Contributions + Capped Gross)', fmtAlways(publicSupport509), true],
+          ['Public Support %', pct509support.toFixed(2) + '%', true],
+          ['Investment Income %', pct509invest.toFixed(2) + '%']
+        ]);
+        sec2.appendChild(sum2);
+        summaryArea.appendChild(sec2);
+
+        // ========== RESULT BOXES ==========
         var resultArea = document.getElementById('result-area');
         resultArea.innerHTML = '';
         var container = document.createElement('div');
         container.className = 'results-container';
 
-        // Test 1: Automatic 33⅓% test
-        var box1 = document.createElement('div');
-        var status1 = passesAutomatic ? 'PASSES' : 'DOES NOT PASS';
-        box1.className = 'result-box ' + (passesAutomatic ? 'result-pass' : 'result-fail');
-        box1.innerHTML =
-          '<div class="detail-line"><strong>Test 1: Automatic Qualification</strong></div>' +
-          '<div class="detail-line">\u00A7170(b)(1)(A)(vi)</div>' +
-          '<span class="big-number">' + status1 + '</span>' +
-          '<div class="detail-line">' + supportPct.toFixed(2) + '% of total support</div>' +
-          '<div class="detail-line">(Must be at least 33.33%)</div>';
-        container.appendChild(box1);
+        // 170 Automatic
+        container.appendChild(makeResultBox(
+          'Test 1: Automatic',
+          '\u00A7170(b)(1)(A)(vi)',
+          passes170auto,
+          pct170.toFixed(2) + '% public support',
+          'Must be at least 33.33%',
+          passes170auto ? 'result-pass' : 'result-fail'
+        ));
 
-        // Test 2: Facts & Circumstances 10% test
-        var box2 = document.createElement('div');
-        var status2 = passesFacts ? 'PASSES' : 'DOES NOT PASS';
-        var factsClass = passesFacts ? (passesAutomatic ? 'result-pass' : 'result-warn') : 'result-fail';
-        box2.className = 'result-box ' + factsClass;
-        box2.innerHTML =
-          '<div class="detail-line"><strong>Test 2: Facts &amp; Circumstances</strong></div>' +
-          '<div class="detail-line">\u00A7170(b)(1)(A)(vi) — 10% threshold</div>' +
-          '<span class="big-number">' + status2 + '</span>' +
-          '<div class="detail-line">' + supportPct.toFixed(2) + '% of total support</div>' +
-          '<div class="detail-line">(Must be at least 10%, plus qualifying factors)</div>';
-        container.appendChild(box2);
+        // 170 Facts & Circumstances
+        var factsClass = passes170facts ? (passes170auto ? 'result-pass' : 'result-warn') : 'result-fail';
+        container.appendChild(makeResultBox(
+          'Test 2: Facts & Circ.',
+          '\u00A7170(b)(1)(A)(vi) — 10%',
+          passes170facts,
+          pct170.toFixed(2) + '% public support',
+          'Must be at least 10%, plus qualifying factors',
+          factsClass
+        ));
+
+        // 509(a)(2)
+        container.appendChild(makeResultBox(
+          'Test 3: Gross Receipts',
+          '\u00A7509(a)(2)',
+          passes509,
+          pct509support.toFixed(2) + '% public support',
+          'Support \u226533.33% and investment income \u226433.33%',
+          passes509 ? 'result-pass' : 'result-fail'
+        ));
 
         resultArea.appendChild(container);
 
@@ -590,6 +668,43 @@
       td.textContent = text;
       if (leftAlign) td.style.textAlign = 'left';
       return td;
+    }
+
+    function makeTh(text, leftAlign) {
+      var th = document.createElement('th');
+      th.textContent = text;
+      if (leftAlign) th.style.textAlign = 'left';
+      return th;
+    }
+
+    function buildSummaryTable(rowData) {
+      var tbl = document.createElement('table');
+      tbl.className = 'summary-table';
+      rowData.forEach(function(s) {
+        var tr = document.createElement('tr');
+        if (s[2]) tr.className = 'summary-highlight';
+        var td1 = document.createElement('td');
+        td1.className = 'summary-label';
+        td1.textContent = s[0];
+        tr.appendChild(td1);
+        var td2 = document.createElement('td');
+        td2.textContent = s[1];
+        tr.appendChild(td2);
+        tbl.appendChild(tr);
+      });
+      return tbl;
+    }
+
+    function makeResultBox(title, subtitle, passes, pctLine, reqLine, cssClass) {
+      var box = document.createElement('div');
+      box.className = 'result-box ' + cssClass;
+      box.innerHTML =
+        '<div class="detail-line"><strong>' + title + '</strong></div>' +
+        '<div class="detail-line">' + subtitle + '</div>' +
+        '<span class="big-number">' + (passes ? 'PASSES' : 'DOES NOT PASS') + '</span>' +
+        '<div class="detail-line">' + pctLine + '</div>' +
+        '<div class="detail-line">(' + reqLine + ')</div>';
+      return box;
     }
 
     loadData();
