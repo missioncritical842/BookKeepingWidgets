@@ -172,17 +172,11 @@
 
     var MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
-    // Balance sheet account type IDs
-    var BS_TYPES = {
-      BANK: 3, AR: 4, ASSET: 5, LIABILITY: 6, EQUITY: 7,
-      INCOME: 1, EXPENSE: 2, TRANSFER: 10
-    };
-
     var rawTransRecords = [];
     var rawBankTxRecords = [];
     var bankAccountsById = {};
     var accountsById = {};
-    var typeMap = {};
+    var bankTxToBankAcct = {};
 
     function fmt(amount) {
       var abs = Math.abs(amount);
@@ -224,9 +218,6 @@
 
     function populateYearDropdown() {
       var yearSet = {};
-      rawBankTxRecords.forEach(function(t) {
-        if (t.Year) yearSet[t.Year] = true;
-      });
       rawTransRecords.forEach(function(t) {
         if (t.Year_Posted) yearSet[t.Year_Posted] = true;
       });
@@ -250,26 +241,48 @@
       document.getElementById('subtitle').textContent =
         'As of ' + MONTH_NAMES[throughMonth - 1] + ' ' + year;
 
-      // --- BANK BALANCES from Bank_Transactions ---
+      // All balances derived from Transaction_Categorization using Date_Posted
       var bankBalanceByBankId = {};
-      rawBankTxRecords.forEach(function(t) {
-        if (!t.Year || !t.Month) return;
-        if (t.Year > year) return;
-        if (t.Year === year && t.Month > throughMonth) return;
-        var bankId = t.Bank_Name;
-        if (!bankId) return;
-        bankBalanceByBankId[bankId] = (bankBalanceByBankId[bankId] || 0) + (t.Amount || 0);
-      });
-
-      // --- CATEGORIZATION BALANCES for non-bank BS accounts ---
       var catBalanceByAccount = {};
+      var openingBalanceEquity = 0;
+      var netIncome = 0;
+      var transferNet = 0;
+
       rawTransRecords.forEach(function(t) {
         if (!t.Year_Posted || !t.Month_Posted) return;
         if (t.Year_Posted > year) return;
         if (t.Year_Posted === year && t.Month_Posted > throughMonth) return;
+        var amount = t.Amount || 0;
+
+        // --- BANK SIDE: derive bank balance from parent Bank_Transaction ---
+        var bankTxId = t.Transaction;
+        if (bankTxId && bankTxToBankAcct[bankTxId]) {
+          var bankAcctId = bankTxToBankAcct[bankTxId];
+          bankBalanceByBankId[bankAcctId] = (bankBalanceByBankId[bankAcctId] || 0) + amount;
+        }
+
+        // --- ACCOUNT SIDE ---
         var acctId = t.Account_Long_Name;
-        if (!acctId) return;
-        catBalanceByAccount[acctId] = (catBalanceByAccount[acctId] || 0) + (t.Amount || 0);
+        if (!acctId || acctId === 0) {
+          // Unassigned records → Opening Balance Equity
+          openingBalanceEquity += amount;
+        } else {
+          var acct = accountsById[acctId];
+          if (!acct) return;
+          var typeId = acct.ACCOUNT_TYPE;
+          if (typeId === 1 || typeId === 8) { // INCOME
+            netIncome += amount;
+          } else if (typeId === 2 || typeId === 9) { // EXPENSE
+            netIncome += amount;
+          } else if (typeId === 10) { // TRANSFER
+            transferNet += amount;
+          } else if (typeId === 4 || typeId === 5 || typeId === 6 || typeId === 7) {
+            // AR, ASSET, LIABILITY, EQUITY
+            catBalanceByAccount[acctId] = (catBalanceByAccount[acctId] || 0) + amount;
+          }
+          // BANK type (3) accounts in categorization are ignored — bank balances
+          // come from the parent Bank_Transaction lookup above
+        }
       });
 
       // --- BUILD BANK ACCOUNTS LIST ---
@@ -277,7 +290,9 @@
       Object.keys(bankAccountsById).forEach(function(id) {
         var ba = bankAccountsById[id];
         var balance = bankBalanceByBankId[Number(id)] || 0;
-        bankAccounts.push({ name: ba.Bank_Account_Name, balance: balance, code: Number(id) });
+        if (Math.abs(balance) >= 0.005) {
+          bankAccounts.push({ name: ba.Bank_Account_Name, balance: balance, code: Number(id) });
+        }
       });
       bankAccounts.sort(function(a, b) { return a.code - b.code; });
 
@@ -285,16 +300,18 @@
       var arAccounts = [], assetAccounts = [];
       var liabilityAccounts = [], equityAccounts = [];
 
-      Object.keys(accountsById).forEach(function(id) {
-        var acct = accountsById[id];
-        var typeId = acct.ACCOUNT_TYPE;
-        var balance = catBalanceByAccount[Number(id)] || 0;
+      Object.keys(catBalanceByAccount).forEach(function(id) {
+        var acct = accountsById[Number(id)];
+        if (!acct) return;
+        var balance = catBalanceByAccount[Number(id)];
+        if (Math.abs(balance) < 0.005) return; // skip zero-balance accounts
         var entry = { name: acct.ACCOUNT_NAME, balance: balance, code: acct.ACCOUNT_CODE };
+        var typeId = acct.ACCOUNT_TYPE;
 
-        if (typeId === BS_TYPES.AR) arAccounts.push(entry);
-        else if (typeId === BS_TYPES.ASSET) assetAccounts.push(entry);
-        else if (typeId === BS_TYPES.LIABILITY) liabilityAccounts.push(entry);
-        else if (typeId === BS_TYPES.EQUITY) equityAccounts.push(entry);
+        if (typeId === 4) arAccounts.push(entry);
+        else if (typeId === 5) assetAccounts.push(entry);
+        else if (typeId === 6) liabilityAccounts.push(entry);
+        else if (typeId === 7) equityAccounts.push(entry);
       });
 
       var sortByCode = function(a, b) { return (a.code || 0) - (b.code || 0); };
@@ -307,7 +324,6 @@
       var assetsTable = document.getElementById('assets-table');
       var totalBank = 0, totalAR = 0, totalAsset = 0;
 
-      // Bank accounts
       if (bankAccounts.length > 0) {
         var headerTr = assetsTable.insertRow();
         headerTr.className = 'subtotal-row';
@@ -321,7 +337,6 @@
         addAccountRow(assetsTable, 'Total Bank Accounts', totalBank, 'subtotal-row');
       }
 
-      // Accounts Receivable
       if (arAccounts.length > 0) {
         var arHeader = assetsTable.insertRow();
         arHeader.className = 'subtotal-row';
@@ -335,7 +350,6 @@
         addAccountRow(assetsTable, 'Total Accounts Receivable', totalAR, 'subtotal-row');
       }
 
-      // Other Assets
       if (assetAccounts.length > 0) {
         var assetHeader = assetsTable.insertRow();
         assetHeader.className = 'subtotal-row';
@@ -357,7 +371,7 @@
       var totalLiab = 0;
 
       liabilityAccounts.forEach(function(a) {
-        var displayBalance = -a.balance; // Liabilities: credits are positive in accounting
+        var displayBalance = -a.balance;
         addAccountRow(liabTable, a.name, displayBalance);
         totalLiab += displayBalance;
       });
@@ -367,33 +381,29 @@
       var equityTable = document.getElementById('equity-table');
       var totalEquity = 0;
 
+      // Opening Balance Equity (from unassigned categorization records)
+      if (Math.abs(openingBalanceEquity) >= 0.005) {
+        addAccountRow(equityTable, 'Opening Balance Equity', openingBalanceEquity);
+        totalEquity += openingBalanceEquity;
+      }
+
+      // Named equity accounts from categorization
       equityAccounts.forEach(function(a) {
-        var displayBalance = -a.balance; // Equity: credits are positive in accounting
+        var displayBalance = -a.balance;
         addAccountRow(equityTable, a.name, displayBalance);
         totalEquity += displayBalance;
       });
 
-      // Net Income = sum of all income + expense categorizations through date
-      // Income transactions are positive, expense transactions are negative
-      var netIncome = 0;
-      rawTransRecords.forEach(function(t) {
-        if (!t.Year_Posted || !t.Month_Posted) return;
-        if (t.Year_Posted > year) return;
-        if (t.Year_Posted === year && t.Month_Posted > throughMonth) return;
-        var acctId = t.Account_Long_Name;
-        if (!acctId) return;
-        var acct = accountsById[acctId];
-        if (!acct) return;
-        var typeId = acct.ACCOUNT_TYPE;
-        if (typeId === BS_TYPES.INCOME || typeId === 8) {
-          netIncome += (t.Amount || 0);
-        } else if (typeId === BS_TYPES.EXPENSE || typeId === 9) {
-          netIncome += (t.Amount || 0);
-        }
-      });
-
+      // Net Income
       addAccountRow(equityTable, 'Net Income', netIncome, 'subtotal-row');
       totalEquity += netIncome;
+
+      // Transfer imbalance (should be ~$0, but show if not)
+      if (Math.abs(transferNet) >= 0.005) {
+        addAccountRow(equityTable, 'Transfer Adjustment', transferNet);
+        totalEquity += transferNet;
+      }
+
       addAccountRow(equityTable, 'TOTAL EQUITY', totalEquity, 'grand-total-row');
 
       var totalLiabEquity = totalLiab + totalEquity;
@@ -435,17 +445,19 @@
         var orgName = (orgRecords.length > 0 && orgRecords[0].Org_Name) ? orgRecords[0].Org_Name : 'Organization';
         document.getElementById('orgName').textContent = orgName;
 
-        var typeRecords = convertToRecords(typeData);
-        typeRecords.forEach(function(r) { typeMap[r.id] = r.TYPE_NAME; });
-
         var accRecords = convertToRecords(accData);
         accRecords.forEach(function(r) { accountsById[r.id] = r; });
 
         var bankAcctRecords = convertToRecords(bankAcctData);
         bankAcctRecords.forEach(function(r) { bankAccountsById[r.id] = r; });
 
+        // Build map: Bank_Transaction id → Bank_Name (bank account id)
+        var bankTxRecords = convertToRecords(bankTxData);
+        bankTxRecords.forEach(function(r) {
+          bankTxToBankAcct[r.id] = r.Bank_Name;
+        });
+
         rawTransRecords = convertToRecords(transData);
-        rawBankTxRecords = convertToRecords(bankTxData);
 
         // Populate year dropdown
         var now = new Date();
