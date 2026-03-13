@@ -293,7 +293,7 @@
 
         // For 509(a)(2): track gross receipts by payer for per-payer cap
         // grossByPayer[category][payerId] = total amount
-        var grossByPayer = { tuition: {}, productSales: {} };
+        var grossByPayer = { tuition: {} };
 
         transRecords.forEach(function(t) {
           if (t.Year_Posted !== liveYear) return;
@@ -309,10 +309,9 @@
             grossByPayer.tuition[payerId] = (grossByPayer.tuition[payerId] || 0) + amount;
             return;
           }
-          // Gross receipts: Product Sales
+          // Gross receipts: Product Sales (many payers, no per-payer cap needed)
           if (productSalesIds[acctId]) {
             liveGrossProductSales += amount;
-            grossByPayer.productSales[payerId] = (grossByPayer.productSales[payerId] || 0) + amount;
             return;
           }
           // Investment income
@@ -431,16 +430,13 @@
         // Per-payer cap: greater of $5,000 or 1% of total support
         var capAmount = Math.max(5000, totalSupport509 * 0.01);
 
-        // Capped gross receipts for live year (per payer)
+        // Capped gross receipts for live year
+        // Per-payer cap only applies to tuition; product sales have many small payers
         var liveCappedTuition = 0;
         Object.keys(grossByPayer.tuition).forEach(function(pid) {
           liveCappedTuition += Math.min(grossByPayer.tuition[pid], capAmount);
         });
-        var liveCappedProductSales = 0;
-        Object.keys(grossByPayer.productSales).forEach(function(pid) {
-          liveCappedProductSales += Math.min(grossByPayer.productSales[pid], capAmount);
-        });
-        var liveCappedGross = liveCappedTuition + liveCappedProductSales;
+        var liveCappedGross = liveCappedTuition + liveGrossProductSales;
 
         // Historical gross receipts: no per-payer data, use totals as-is
         // (conservative: if any single payer exceeded cap historically, this overstates)
