@@ -468,7 +468,11 @@
         var yearSelect = document.getElementById('year-select');
         var monthSelect = document.getElementById('month-select');
 
-        if (years.indexOf(currentYear) !== -1) {
+        var prevYear = currentYear - 1;
+        if (years.indexOf(prevYear) !== -1) {
+          yearSelect.value = prevYear;
+          monthSelect.value = 12;
+        } else if (years.indexOf(currentYear) !== -1) {
           yearSelect.value = currentYear;
           monthSelect.value = currentMonth;
         } else if (years.length > 0) {
