@@ -108,6 +108,38 @@
     var rawTransRecords = [];
     var peopleById = {};
     var accountsById = {};
+    var individBizContribIds = {}; // set of account row IDs that are or descend from "Individ, Business Contributions"
+
+    function buildIndividBizContribSet() {
+      // Find the account named "Individ, Business Contributions"
+      var targetIds = {};
+      Object.keys(accountsById).forEach(function(id) {
+        if (accountsById[id].ACCOUNT_NAME === 'Individ, Business Contributions') {
+          targetIds[Number(id)] = true;
+        }
+      });
+      // Also include any descendants (children whose PARENT_ACCOUNT chain leads to it)
+      var accountsByAccId = {};
+      Object.keys(accountsById).forEach(function(id) {
+        var a = accountsById[id];
+        if (a.ACCOUNT_ID) accountsByAccId[a.ACCOUNT_ID] = a;
+      });
+      Object.keys(accountsById).forEach(function(id) {
+        var current = accountsById[id];
+        var seen = {};
+        while (current) {
+          if (targetIds[current.id]) { individBizContribIds[Number(id)] = true; break; }
+          var pid = current.PARENT_ACCOUNT;
+          if (!pid || seen[pid]) break;
+          seen[pid] = true;
+          current = accountsByAccId[pid] ? accountsById[Object.keys(accountsById).find(function(k) { return accountsById[k].ACCOUNT_ID === pid; })] : null;
+        }
+      });
+    }
+
+    function isIndividBizContrib(acctRowId) {
+      return !!individBizContribIds[acctRowId];
+    }
 
     function fmt(amount) {
       var abs = Math.abs(amount);
@@ -176,9 +208,8 @@
         if (!acctId) return;
         var acct = accountsById[acctId];
         if (!acct) return;
-        var typeId = acct.ACCOUNT_TYPE;
-        // Only INCOME accounts (types 1 and 8)
-        if (typeId !== 1 && typeId !== 8) return;
+        // Only "Individ, Business Contributions" and its descendants
+        if (!isIndividBizContrib(acctId)) return;
         var donorId = t.From_To;
         if (!donorId) return;
         var amount = t.Amount || 0;
@@ -250,6 +281,7 @@
 
         var accRecords = convertToRecords(accData);
         accRecords.forEach(function(r) { accountsById[r.id] = r; });
+        buildIndividBizContribSet();
 
         var peopleRecords = convertToRecords(peopleData);
         peopleRecords.forEach(function(r) { peopleById[r.id] = r; });
